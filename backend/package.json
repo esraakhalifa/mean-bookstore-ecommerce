@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@antfu/eslint-config": "^4.4.0",
     "@eslint/js": "^9.21.0",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
