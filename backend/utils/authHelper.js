@@ -35,5 +35,30 @@ const removeRefreshToken = (refreshToken) => {
   refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
 };
 
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-export { refreshTokens, generateTokens, refreshToken,removeRefreshToken };
+const sendVerificationEmail = async (user) => {
+
+  const token = jwt.sign(
+    { userId: user._id, email: user.email, role: user.role },
+    process.env.ACCESS_TOKEN_SECRET,
+    { expiresIn: '1h' }
+  );
+  
+  const verificationLink = `${process.env.BASE_URL}/verify/${token}`;
+  await transporter.sendMail({
+    from: `"No Reply" <${process.env.EMAIL_USER}>`,
+    to: user.email,
+    subject: "Email Verification",
+    html: `<p>Click <a href="${verificationLink}">here</a> to verify your email.</p>`,
+  });
+};
+
+
+export { refreshTokens, generateTokens, refreshToken,removeRefreshToken,sendVerificationEmail };

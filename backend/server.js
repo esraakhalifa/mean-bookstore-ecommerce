@@ -24,30 +24,12 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.model("User", UserSchema);
 
-app.get("/users", async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+
 
 app.get('/', (req, res) => {
-  res.send('Hello, World!');
+  res.send('Server Home');
 });
 
-
-/*app.post("/users", async (req, res) => {
-  try {
-    const { name } = req.body;
-    const user = new User({ name });
-    await user.save();
-    res.status(201).json(user);
-  } catch (error) {
-    res.status(500).json({ error: "Error creating user" });
-  }
-});*/
 
 
 app.listen(PORT, () => {

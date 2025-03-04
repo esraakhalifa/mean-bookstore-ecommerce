@@ -57,9 +57,20 @@ export const postLogin = (req, res, next) => {
 
 
 export const postSignup = (req, res, next) => {
-  const email = req.body.email;
-  const password = req.body.password;
-  const confirmPassword = req.body.confirmPassword;
+  const {
+    email,
+    password,
+    confirmPassword,
+    firstName,
+    lastName,
+    userName,
+    profile
+  } = req.body;
+  
+  const isVerified = false;
+  const role = "customer";  
+  const userProfile = profile ? structuredClone(profile) : {};
+
 
   if (!email || !password || !confirmPassword) {
     return res.status(400).json({ message: 'All fields are required' });
@@ -77,12 +88,16 @@ export const postSignup = (req, res, next) => {
           return bcrypt
               .hash(password, 12)
               .then(hashedPassword => {
-                //////////////////////create user object and save its data ----> use the user model
                   const user = new User({
                       email: email,
                       password: hashedPassword,
-                      cart: { items: [] },
-                      role: 'client' //default role
+                      firstName: firstName,
+                      lastName: lastName,
+                      userName: userName,
+                      profile:userProfile,
+                      isVerified:isVerified,
+                      cart: { books: [], totalAmount: 0 },
+                      role: role
                   });
                   console.log("user is created");
                   return user.save();
@@ -126,4 +141,15 @@ export const postRefresh = (req, res, next) => {
   }
 };
 
-  
+export const emailVerify = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    await User.findByIdAndUpdate(decoded.id, { verified: true });
+
+    res.status(200).json({ message: "Email verified, you can log in" });
+  } catch (err) {
+
+    res.status(400).json({ message: "Invalid or expired token" });
+  }
+};
