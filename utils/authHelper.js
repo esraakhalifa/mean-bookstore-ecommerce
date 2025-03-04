@@ -1,22 +1,22 @@
 import jwt from 'jsonwebtoken';
-
+import process from 'node:process';
 let refreshTokens = [];
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { userId: user._id, email: user.email, role: user.role },
+    {userId: user._id, email: user.email, role: user.role},
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: '1h' }
+    {expiresIn: '1h'}
   );
 
   const refreshToken = jwt.sign(
-    { userId: user._id, email: user.email, role: user.role },
+    {userId: user._id, email: user.email, role: user.role},
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: '7d' }
+    {expiresIn: '7d'}
   );
 
   refreshTokens.push(refreshToken);
-  return { accessToken, refreshToken };
+  return {accessToken, refreshToken};
 };
 
 const refreshToken = (token) => {
@@ -36,29 +36,27 @@ const removeRefreshToken = (refreshToken) => {
 };
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+    pass: process.env.EMAIL_PASS
+  }
 });
 
 const sendVerificationEmail = async (user) => {
-
   const token = jwt.sign(
-    { userId: user._id, email: user.email, role: user.role },
+    {userId: user._id, email: user.email, role: user.role},
     process.env.ACCESS_TOKEN_SECRET,
-    { expiresIn: '1h' }
+    {expiresIn: '1h'}
   );
-  
+
   const verificationLink = `${process.env.BASE_URL}/verify/${token}`;
   await transporter.sendMail({
     from: `"No Reply" <${process.env.EMAIL_USER}>`,
     to: user.email,
-    subject: "Email Verification",
-    html: `<p>Click <a href="${verificationLink}">here</a> to verify your email.</p>`,
+    subject: 'Email Verification',
+    html: `<p>Click <a href="${verificationLink}">here</a> to verify your email.</p>`
   });
 };
 
-
-export { refreshTokens, generateTokens, refreshToken,removeRefreshToken,sendVerificationEmail };
+export {generateTokens, refreshToken, refreshTokens, removeRefreshToken, sendVerificationEmail};
