@@ -1,2 +1,0 @@
-mongo user: SnowMar
-password: @cluster0Pass

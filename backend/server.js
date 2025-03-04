@@ -1,6 +1,5 @@
 import express from "express";
 import mongoose from "mongoose";
-import bodyParser from "body-parser";
 import cors from "cors";
 import dotenv from "dotenv";
 
@@ -16,14 +15,6 @@ mongoose
   .connect(MONGO)
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.error("MongoDB Connection Error:", err));
-
-
-const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true }
-});
-
-const User = mongoose.model("User", UserSchema);
-
 
 
 app.get('/', (req, res) => {
