@@ -9,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const MONGO = process.env.MONGO_URI;
 
+
 app.use(express.json());
 
 mongoose
@@ -17,11 +18,7 @@ mongoose
   .catch((err) => console.error("MongoDB Connection Error:", err));
 
 
-const UserSchema = new mongoose.Schema({
-  name: { type: String, required: true }
-});
 
-const User = mongoose.model("User", UserSchema);
 
 app.get("/users", async (req, res) => {
   try {
@@ -32,16 +29,6 @@ app.get("/users", async (req, res) => {
   }
 });
 
-/*app.post("/users", async (req, res) => {
-  try {
-    const { name } = req.body;
-    const user = new User({ name });
-    await user.save();
-    res.status(201).json(user);
-  } catch (error) {
-    res.status(500).json({ error: "Error creating user" });
-  }
-});*/
 
 
 app.listen(PORT, () => {
