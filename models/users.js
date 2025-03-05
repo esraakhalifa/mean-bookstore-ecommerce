@@ -18,9 +18,7 @@ const email = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/;
  */
 
 const UserSchema = new mongoose.Schema({
-  _id: {
-    type: Number
-  },
+  // removed _id
   firstName:
    {type: String, required: true, match: /^[a-z]+$/i},
   lastName: {type: String, required: true, match: /^[a-z]+$/i},
@@ -53,7 +51,7 @@ const UserSchema = new mongoose.Schema({
     addresses: [{
       street: String,
       city: String,
-      Governorate: String, // later make it an enum
+      governorate: String, // later make it an enum //i rewrote Governorate -> governorate
       country: String,
       postalCode: String // later check for the validations
     }],

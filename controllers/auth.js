@@ -1,5 +1,7 @@
+/* eslint-disable node/prefer-global/process */
 import bcrypt from 'bcryptjs';
-import User from '../models/user.js';
+import jwt from 'jsonwebtoken';
+import Users from '../models/users.js';
 import * as authUtils from '../utils/authHelper.js';
 
 export const getLogin = (req, res, next) => {
@@ -24,7 +26,7 @@ export const postLogin = (req, res, next) => {
     return res.redirect('/login');
   }
 
-  User.findOne({email})
+  Users.findOne({email})
     .then((user) => {
       if (!user) {
         return res.status(404).json({message: 'User not found'});
@@ -74,7 +76,7 @@ export const postSignup = (req, res, next) => {
   if (password !== confirmPassword) {
     return res.status(400).json({message: 'Passwords do not match'});
   }
-  User.findOne({email})
+  Users.findOne({email})
     .then((userDoc) => {
       if (userDoc) {
         return res.status(409).json({message: 'User already exists'});
@@ -83,7 +85,7 @@ export const postSignup = (req, res, next) => {
       return bcrypt
         .hash(password, 12)
         .then((hashedPassword) => {
-          const user = new User({
+          const user = new Users({
             email,
             password: hashedPassword,
             firstName,
@@ -137,7 +139,7 @@ export const emailVerify = async (req, res, next) => {
   try {
     const {token} = req.params;
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-    await User.findByIdAndUpdate(decoded.id, {verified: true});
+    await Users.findByIdAndUpdate(decoded.id, {verified: true});
 
     res.status(200).json({message: 'Email verified, you can log in'});
   } catch (err) {

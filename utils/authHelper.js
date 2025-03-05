@@ -1,5 +1,10 @@
+/* eslint-disable import/no-mutable-exports */
 import jwt from 'jsonwebtoken';
+// eslint-disable-next-line perfectionist/sort-imports
+import nodemailer from 'nodemailer';
+// eslint-disable-next-line perfectionist/sort-imports
 import process from 'node:process';
+
 let refreshTokens = [];
 
 const generateTokens = (user) => {
