@@ -5,6 +5,14 @@
   "description": "",
   "author": "",
   "license": "ISC",
+  "homepage": "https://github.com/esraakhalifa/mean-bookstore-ecommerce#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esraakhalifa/mean-bookstore-ecommerce.git"
+  },
+  "bugs": {
+    "url": "https://github.com/esraakhalifa/mean-bookstore-ecommerce/issues"
+  },
   "keywords": [],
   "main": "index.js",
   "scripts": {

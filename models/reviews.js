@@ -1,20 +1,5 @@
 import mongoose from 'mongoose';
 
-/**
- * Reviews
-
-PK Review_ID: Object_ID
-
-Book Object_ID Required REF
-
-User Object_ID Required REF
-
-Comment String
-
-Rate Number Required, range(0,5)
-
-CreatedAt TimeStamp Required
- */
 const ReviewSchema = new mongoose.Schema(
   {
     book: {
@@ -23,7 +8,7 @@ const ReviewSchema = new mongoose.Schema(
       ref: 'Book'
     },
     user: {
-      type: Number,
+      type: mongoose.Schema.Types.ObjectId,
       required: true,
       ref: 'User'
     },
@@ -34,7 +19,8 @@ const ReviewSchema = new mongoose.Schema(
     rating: {
       type: Number,
       min: 1,
-      max: 5
+      max: 5,
+      required: true
     }
   },
   {timestamps: true}

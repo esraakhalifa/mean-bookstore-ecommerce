@@ -6,17 +6,6 @@ const egyptianMobileRegex = /^(\+20|0)1[0-25]\d{8}$/;
 const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 const email = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/;
 
-/**
- * PK | user id Objectld |
- *  firstName string required |
- *  lastName string required |
- *  userName string required |
- * role enum[customer, admin] required |
- *  cart object: books[], totalAmount: number min: 1 |
- *  profile object: addresses[address {}], phone_numbers |
- *  payment_details{ card{card_number: string}, online_wallet{wallet_number}}:
- */
-
 const UserSchema = new mongoose.Schema({
 
   googleId: {
@@ -49,8 +38,8 @@ const UserSchema = new mongoose.Schema({
     required: true
   },
   cart: {
-    books: [{type: mongoose.Schema.Types.ObjectId, ref: 'Book'}], // Assuming books are stored in a separate collection
-    totalAmount: {type: Number, min: 1, default: 0}
+    books: [{type: mongoose.Schema.Types.ObjectId, ref: 'Book'}],
+    totalAmount: {type: Number, min: 1, default: 1}
   },
   profile: {
     addresses: [{
@@ -66,9 +55,7 @@ const UserSchema = new mongoose.Schema({
     card: [{
       card_number: {type: String, match: cardNumberRegex}
     }],
-    online_wallet: {
-      wallet_number: {type: Number}
-    }
+    online_wallet: {type: Number}
   }
 }, {timestamps: true});
 
