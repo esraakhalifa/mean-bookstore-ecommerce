@@ -5,6 +5,14 @@
   "description": "",
   "author": "",
   "license": "ISC",
+  "homepage": "https://github.com/esraakhalifa/mean-bookstore-ecommerce#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esraakhalifa/mean-bookstore-ecommerce.git"
+  },
+  "bugs": {
+    "url": "https://github.com/esraakhalifa/mean-bookstore-ecommerce/issues"
+  },
   "keywords": [],
   "main": "index.js",
   "scripts": {
@@ -17,6 +25,7 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.10.0",
     "nodemon": "^3.1.9",
     "redis": "^4.7.0",
     "socket.io": "^4.8.1",

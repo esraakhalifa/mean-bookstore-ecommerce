@@ -1,5 +1,7 @@
-import jwt from 'jsonwebtoken';
 import process from 'node:process';
+import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
+
 let refreshTokens = [];
 
 const generateTokens = (user) => {
@@ -59,4 +61,5 @@ const sendVerificationEmail = async (user) => {
   });
 };
 
-export {generateTokens, refreshToken, refreshTokens, removeRefreshToken, sendVerificationEmail};
+const Rtokens = refreshTokens;
+export {generateTokens, refreshToken, removeRefreshToken, Rtokens, sendVerificationEmail};

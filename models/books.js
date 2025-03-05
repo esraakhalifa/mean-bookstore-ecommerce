@@ -1,26 +1,5 @@
 import mongoose from 'mongoose';
 
-/**
- *                                                         Books
-
-PK                                     book id: ObjectId
-
-                                title: string required
-
-  author: string required
-
-  price: number required
-
-  description: string required
-
-  stock: number required
-
-  reviews: Array
-
-  image: string required
-
-Remember the current location is Giza, Giza Governorate, Egypt.
- */
 const BookSchema = new mongoose.Schema(
   {
 
@@ -30,10 +9,10 @@ const BookSchema = new mongoose.Schema(
       unique: true
     },
     authors: {
-      type: [String], // Array of strings
+      type: [String],
       validate: {
         validator(arr) {
-          return arr.length > 0; // Ensures at least 3 books
+          return arr.length > 0;
         },
         message: 'A book must have at least one author'
       }
