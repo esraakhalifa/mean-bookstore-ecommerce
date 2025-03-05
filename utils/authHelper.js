@@ -2,7 +2,7 @@ import process from 'node:process';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 
-let refreshTokens = [];
+const refreshTokens = [];
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
@@ -27,14 +27,14 @@ const refreshToken = (token) => {
   }
 
   const userInfo = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
-  refreshTokens = refreshTokens.filter((t) => t !== token);
+  delete refreshTokens.filter((t) => t === token);
   const tokens = generateTokens(userInfo);
 
   return tokens;
 };
 
 const removeRefreshToken = (refreshToken) => {
-  refreshTokens = refreshTokens.filter((t) => t !== refreshToken);
+  delete refreshTokens.filter((t) => t === refreshToken);
 };
 
 const transporter = nodemailer.createTransport({
