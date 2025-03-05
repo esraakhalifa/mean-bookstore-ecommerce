@@ -18,8 +18,11 @@ const email = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/;
  */
 
 const UserSchema = new mongoose.Schema({
-  _id: {
-    type: Number
+
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true
   },
   firstName:
    {type: String, required: true, match: /^[a-z]+$/i},
@@ -33,7 +36,7 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required() { return !this.googleId },
     match: strongPassword
   },
   isVerified: {
@@ -70,18 +73,21 @@ const UserSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 UserSchema.pre('save', function (next) {
-  this.password = bcrypt.hashSync(this.password, 10);
+  if (this.password) {
+    this.password = bcrypt.hashSync(this.password, 10);
+  }
   next();
 });
+
 UserSchema.pre('findOneAndUpdate', async function (next) {
   const update = this.getUpdate();
 
   if (update.password) {
     update.password = await bcrypt.hash(update.password, 10);
   }
-
   next();
 });
+
 UserSchema.methods.comparePasswords = function (password) {
   return bcrypt.compareSync(password, this.password);
 };

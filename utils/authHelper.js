@@ -1,5 +1,7 @@
-import jwt from 'jsonwebtoken';
 import process from 'node:process';
+import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
+
 let refreshTokens = [];
 
 const generateTokens = (user) => {

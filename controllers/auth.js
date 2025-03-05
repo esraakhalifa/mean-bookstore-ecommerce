@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
-import User from '../models/user.js';
+import jwt from 'jsonwebtoken';
+import passport from 'passport';
+import User from '../models/users.js';
 import * as authUtils from '../utils/authHelper.js';
 
 export const getLogin = (req, res, next) => {
@@ -14,6 +16,21 @@ export const getSignup = (req, res, next) => {
   //     path: '/signup',
   // });
   // render the signup frontend page
+};
+
+export const googleAuth = passport.authenticate('google', {scope: ['profile', 'email']});
+
+export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});
+
+export const googleAuthSuccess = (req, res) => {
+  res.redirect('/home');
+};
+
+export const getProfile = (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/login');
+  }
+  res.send(`Welcome, ${req.user.displayName}`);
 };
 
 export const postLogin = (req, res, next) => {
