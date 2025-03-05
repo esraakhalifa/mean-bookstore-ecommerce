@@ -1,5 +1,7 @@
+import process from 'node:process';
 import bcrypt from 'bcryptjs';
-import User from '../models/user.js';
+import jwt from 'jsonwebtoken';
+import User from '../models/users.js';
 import * as authUtils from '../utils/authHelper.js';
 
 export const getLogin = (req, res, next) => {
