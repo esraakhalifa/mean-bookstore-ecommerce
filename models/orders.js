@@ -41,3 +41,6 @@ const OrderSchema = mongoose.Schema(
 );
 
 OrderSchema.plugin(AutoIncrement(connection), {inc_field: '_id'});
+
+const Orders = mongoose.model('Order', OrderSchema);
+export default Orders;
