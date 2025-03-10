@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 
 const cardNumberRegex = /^(?:4\d{12}(?:\d{3})?|5[1-5]\d{14}|3[47]\d{13}|3(?:0[0-5]|[68]\d)\d{11}|6(?:011|5\d{2})\d{12}|(?:2131|1800|35\d{3})\d{11})$/;
 const egyptianMobileRegex = /^(\+20|0)1[0-25]\d{8}$/;
-const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+// const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 const email = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/;
 
 const UserSchema = new mongoose.Schema({
@@ -25,8 +25,8 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required() { return !this.googleId },
-    match: strongPassword
+    required() { return !this.googleId }
+    // match: strongPassword
   },
   isVerified: {
     type: Boolean,
@@ -38,8 +38,11 @@ const UserSchema = new mongoose.Schema({
     required: true
   },
   cart: {
-    books: [{type: mongoose.Schema.Types.ObjectId, ref: 'Book'}],
-    totalAmount: {type: Number, min: 1, default: 1}
+    books: [{
+      bookId: {type: mongoose.Schema.Types.ObjectId, ref: 'Book'},
+      quantity: {type: Number, min: 1, default: 1}
+    }],
+    totalAmount: {type: Number, min: 0, default: 0}
   },
   profile: {
     addresses: [{
