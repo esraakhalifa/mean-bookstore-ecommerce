@@ -1,4 +1,8 @@
-import {RedisClient} from '../../server.js';
+import RedisClient from '../../server.js';
+
+const createBookKey = (book) => {
+  return `book:${book._id.toString()}`;
+};
 
 const bookSchemaForCache = (book) => ({
   title: book.title || '',
@@ -17,70 +21,95 @@ const bookSchemaFromCache = (book) => ({
   stock: +book.stock,
   img: book.img
 });
-
-const cacheBooksMiddleware = async (req, res, books, next) => {
-  const page = req.query.page || 1;
-  const pipeline = RedisClient.multi();
-  const bookKeys = [];
-
-  for (const book of books) {
-    const bookKey = `book:${book._id.toString()}`;
-    pipeline.hSet(bookKey, bookSchemaForCache(book));
-    pipeline.expire(bookKey, 3600);
-    bookKeys.push(bookKey);
-  }
-
-  const pageKey = `books:page_${page}`;
-  // pipeline.del(pageKey);
-  pipeline.rPush(pageKey, ...bookKeys);
-  pipeline.expire(pageKey, 3600);
-
-  await pipeline.exec();
-  console.log(`Cached ${books.length} books for page ${page}`);
-  next();
-};
-
-const getCachedBooksMiddleware = async (req, res, next) => {
-  const {page} = req.params; // Assuming page number is in route params
-  const pageKey = `books:page_${page}`;
-
+const getCachedBook = async (book) => {
   try {
-    const bookKeys = await RedisClient.lRange(pageKey, 0, -1);
-
-    if (!bookKeys.length) {
-      console.log(`No cached books found for page ${page}`);
-      return next(); // Proceed to fetch from DB if cache is empty
+    const bookKey = `book:${book._id.toString()}`;
+    const cachedBook = RedisClient.hGetAll(bookKey);
+    if (!cachedBook || Object.keys(cachedBook).length === 0) {
+      console.log(`No cached book data found for page ${bookKey}`);
+      return null;
     }
 
-    const pipeline = RedisClient.multi();
-    bookKeys.forEach((key) => pipeline.hGetAll(key));
-
-    const books = await pipeline.exec();
-    const parsedBooks = books.map(bookSchemaFromCache);
-
-    console.log(`Retrieved ${parsedBooks.length} books from cache for page ${page}`);
-
-    req.cachedBooks = parsedBooks; // Attach to req object
-    return next(); // Proceed to controller
+    return bookSchemaFromCache(cachedBook);
   } catch (error) {
     console.error('Error retrieving cached books:', error);
-    next(); // Proceed even if Redis fails
+  }
+};
+const cacheBook = async (book) => {
+  if (!book) {
+    console.log('No books to cache.');
+    return;
+  }
+
+  const bookKey = createBookKey(book);
+  const bookData = bookSchemaForCache(book);
+
+  if (!bookData || Object.keys(bookData).length === 0) {
+    console.warn(`Skipping empty book data for ${bookKey}`);
+  }
+
+  RedisClient.hSet(bookKey, bookData);
+  RedisClient.expire(bookKey, 3600);
+};
+
+async function indexBook(book) {
+  await RedisClient.zadd(`book:price`, book.price, book._id);
+  await RedisClient.zadd(`book:rating`, book.rating, book._id);
+  await RedisClient.sadd(`book:category:${book.category}`, book._id);
+}
+
+const deleteFromCache = async (book) => {
+  const bookKey = createBookKey(book);
+  await RedisClient.del(bookKey);
+  await RedisClient.zrem(`book:price`, book._id);
+  await RedisClient.zrem(`book:rating`, book._id);
+  // await RedisClient.srem(`books:category:${category}`, book._id);
+};
+
+const updateCache = async (book) => {
+  try {
+    await deleteFromCache(book);
+    await cacheBook(book);
+    console.log(`Cache updated for book: ${book._id.toString()}`);
+  } catch (error) {
+    console.error(`Failed to update cache for book: ${book._id.toString()}`, error);
   }
 };
 
-// const bookCacheMiddleware = async (req, res, next) => {
-//   const page = +req.body.params;
-//   const pageKey = `book:page_${page}`;
-//   const books = await
-// };
+async function searchByPrice(min, max) {
+  return await RedisClient.zrangebyscore('book:price', min, max);
+}
 
-export {cacheBooksMiddleware, getCachedBooksMiddleware};
+async function filterByCategory(category) {
+  return await RedisClient.smembers(`books:category:${category}`);
+}
+async function updateIndex(book) {
+  await RedisClient.zadd(`books:price`, book.price, book._id);
+  await RedisClient.zadd(`books:rating`, book.rating, book._id);
+  await RedisClient.sadd(`books:category:${book.category}`, book._id);
+}
+const cacheByPage = async (page, books) => {
+  const cacheKey = `books:page:${page}`;
 
-/**
- * 1)law la2a fil cache tamam, ml2ahash hy3ml call lel database
- * 2)w b3den a3melo function t-cache elly rege3 y-call it ba3d
- * ma y-retrieve men el database
- * 3)w a3melo function t-update el book fil cache y-call it
- * fil update api
- *
- */
+  if (!books || books.length === 0) return;
+
+  // 🔹 Store the books in Redis with a 10-minute expiration time
+  await RedisClient.hSet(cacheKey, 600, JSON.stringify(books));
+
+  console.log(`📌 Cached ${books.length} books for page ${page}`);
+};
+
+export default {
+  bookSchemaFromCache,
+  cacheBook,
+  createBookKey,
+  deleteFromCache,
+  filterByCategory,
+  getCachedBook,
+  indexBook,
+  searchByPrice,
+  updateCache,
+  updateIndex,
+  cacheByPage
+
+};
