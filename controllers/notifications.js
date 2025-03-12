@@ -23,7 +23,7 @@ export const createNotification = async (req, res) => {
       id: notification._id,
       message,
       type,
-      metadata: metadata || {},
+      metadata: notification.metadata,
       createdAt: notification.createdAt
     });
 
