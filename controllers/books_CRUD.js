@@ -62,10 +62,14 @@ const addReview = async (id, review) => {
   await recalculateRating(id);
 };
 
-const deleteReview = async (id, rid) => {
+const deleteReview = async (id, rid, user) => {
   if (id === undefined || rid === undefined) {
     throw new Error('Missing required data to delete review');
   }
+  if (!user.id) throw new Error('can not get user id pls try again later');
+  const review = await Reviews.findOne({_id: rid});
+  if (Object.keys(review) === 0) throw new Error('Wrong review id.');
+  if (review.user.toString() !== user.id.toSrting()) throw new Error('authorization failed');
   const book = await Books.findById(id);
   if (Object.keys(book) === 0) throw new Error('wrong id.');
   book.reviews.pull(rid);
