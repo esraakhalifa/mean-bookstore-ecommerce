@@ -1,6 +1,6 @@
 import process from 'node:process';
+import {RateLimiterMemory} from 'rate-limiter-flexible';
 import {Server} from 'socket.io';
-import rateLimiter from 'socket.io-rate-limiter';
 import {authenticate, checkMaximumInstances} from '../middlewares/sockets.js';
 import Notification from '../models/Notification.js';
 
@@ -16,12 +16,20 @@ export const initSocket = (server) => {
       methods: ['GET', 'POST']
     }
   });
-  const authLimiter = rateLimiter({
-    windowMs: 15 * 60 * 1000,
-    max: 5
+  const rateLimiter = new RateLimiterMemory({
+    points: 10,
+    duration: 1
   });
 
-  io.use(authLimiter);
+  io.use(async (socket, next) => {
+    try {
+      await rateLimiter.consume(socket.handshake.address);
+      next();
+    } catch {
+      next(new Error('Rate limit exceeded'));
+    }
+  });
+
   io.use(authenticate);
   io.use(checkMaximumInstances(io, users));
 
@@ -144,6 +152,9 @@ export const initSocket = (server) => {
 
 export const getIO = () => {
   if (!io) throw new Error('Socket.io not initialized');
+  if (!io.httpServer || !io.httpServer.listening) {
+    throw new Error('Socket.io server not connected');
+  }
   return io;
 };
 

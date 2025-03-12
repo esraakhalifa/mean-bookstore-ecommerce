@@ -1,12 +1,7 @@
 import mongoose from 'mongoose';
-import AutoIncrement from 'mongoose-sequence';
 
-const connection = mongoose.connection;
 const OrderSchema = mongoose.Schema(
   {
-    _id: {
-      type: Number
-    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -39,8 +34,6 @@ const OrderSchema = mongoose.Schema(
   },
   {timestamps: true}
 );
-
-OrderSchema.plugin(AutoIncrement(connection), {inc_field: '_id'});
 
 const Orders = mongoose.model('Order', OrderSchema);
 export default Orders;

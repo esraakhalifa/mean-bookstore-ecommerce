@@ -12,8 +12,6 @@ router.get('/user/:userId', authenticate, OrderController.getUserOrders);
 router.get('/', authenticate, authorize('admin'), OrderController.getOrders);
 router.put('/:id', authenticate, authorize('admin'), OrderController.updateOrder);
 router.delete('/:id', authenticate, authorize('admin'), OrderController.deleteOrder);
-router.get('/stats/overview', authenticate, authorize('admin'), OrderController.getOrderStats);
 router.get('/stats/popular-books', authenticate, authorize('admin'), OrderController.getPopularBooks);
-router.get('/stats/customer/:userId', authenticate, authorize('admin'), OrderController.getCustomerPurchaseHistory);
 
 export default router;

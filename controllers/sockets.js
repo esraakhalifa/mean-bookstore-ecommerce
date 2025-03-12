@@ -1,20 +1,31 @@
 import {getIO, trackedBooks, userActivity, users} from '../utils/socketHelper.js';
 
-const io = getIO();
-
 export const notifyUser = (userId, data) => {
+  const io = getIO();
+
   io.to(`user-${userId}`).emit('notification', data);
 };
 
 export const notifyAllUsers = (data) => {
+  const io = getIO();
+
   io.emit('notification', data);
 };
 
 export const notifyAdmins = (data) => {
+  const io = getIO();
+
   io.to('admin-channel').emit('notification', data);
 };
 
+export const notifyAdminsUserOrder = (data) => {
+  const io = getIO();
+
+  io.to('admin-channel').emit('new-order', data);
+};
+
 export const notifyUsersByBookId = (bookId, data) => {
+  const io = getIO();
   const bookUsers = trackedBooks.get(bookId) || new Set();
   for (const userId of bookUsers) {
     io.to(`user-${userId}`).emit('notification', data);
