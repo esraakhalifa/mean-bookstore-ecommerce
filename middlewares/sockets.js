@@ -4,32 +4,49 @@ import jwt from 'jsonwebtoken';
 export const authenticate = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token || socket.handshake.query.token;
+
+    if (!token) {
+      return next(new Error('Authentication token is required'));
+    }
+
     const decodedData = jwt.verify(token, process.env.JWT_SECRET);
+
+    decodedData.userAgent = socket.handshake.headers['user-agent']
+      ? {
+          browser: {name: 'unknown'},
+          device: {type: 'unknown'}
+        }
+      : socket.handshake.headers['user-agent'];
+
+    decodedData.ip = socket.handshake.address;
+    decodedData.connectedAt = new Date();
+
     socket.user = decodedData;
     next();
-  } catch {
+  } catch (error) {
+    console.error('Socket authentication error:', error.message);
     next(new Error('Authentication error'));
   }
 };
 
-export const checkMaximumInstances
-  = async (io, users) => {
-    return async (socket, next) => {
-      const MAX_USERS_PER_ROOM = 6;
-      try {
-        const userRoom = `user-${socket.user.id}`;
+export const checkMaximumInstances = (users) => {
+  return async (socket, next) => {
+    const MAX_CONNECTIONS_PER_USER = 6;
+    try {
+      const userId = socket.user.id;
 
-        const room = users.get(userRoom);
-        const currentCount = room ? room.sockets.size : 0;
-
-        if (currentCount >= MAX_USERS_PER_ROOM) {
-          return next(new Error('ROOM_FULL'));
-        }
-
-        socket.room = userRoom;
-        next();
-      } catch (error) {
-        next(error);
+      if (!users.has(userId)) {
+        return next();
       }
-    };
+
+      const userData = users.get(userId);
+      if (userData.sockets.size >= MAX_CONNECTIONS_PER_USER) {
+        return next(new Error('Maximum connection limit reached'));
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
   };
+};

@@ -25,7 +25,7 @@ passport.use(
             email: profile.emails[0].value,
             isVerified: true, // OAuth users are considered verified
             role: 'customer',
-            cart: {books: [], totalAmount: 1},
+            cart: {books: [], totalAmount: 1}
           });
           await user.save();
         }
