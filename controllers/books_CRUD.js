@@ -13,7 +13,11 @@ const countRecords = async () => {
 
 const recalculateRating = async (id) => {
   const book = await Books.findById(id);
-  const reviews = await arrayMatch(book.reviews);
+  if (Object.keys(book) === 0) throw new Error('There is no book with this id.');
+  let reviews = [];
+  if (book.reviews.length > 0) {
+    reviews = await arrayMatch(book.reviews);
+  }
   let total = 0;
   reviews.forEach((review) => {
     total += review.rating;
@@ -22,23 +26,36 @@ const recalculateRating = async (id) => {
   await Books.findByIdAndUpdate(id, {rate: avg.toFixed(1)});
 };
 
-const homePage = async (page) => {
-  if (page === undefined) page = 0;
-  if (page < 0 || page > countRecords() / 10) {
+const homePage = async (query) => {
+  if (query.page === undefined) query.page = 0;
+  if (query.page < 0 || query.page > countRecords() / 10) {
     throw new Error('Invalid page number');
   }
-  const books = await Books.find({}, 'image title price').skip(page * 10).limit(10);
+  const {page, ...filters} = query;
+  const books = await Books.find(filters, 'image title price category rate').skip(page * 10).limit(10);
   return books;
 };
 
 const bookDetails = async (id) => {
   const book = await Books.findById(id);
-  book.reviews = await arrayMatch(book.reviews);
+  if (Object.keys(book).length === 0) {
+    throw new Error('Book not found');
+  }
+  if (book.reviews.length > 0) {
+    book.reviews = await arrayMatch(book.reviews);
+  }
   return book;
 };
 
 const addReview = async (id, review) => {
+  if (id === undefined) throw new Error('Missing id');
   const book = await Books.findById(id);
+  if (Object.keys(book) === 0) throw new Error('there is no book with this id.');
+  for (let data in review) {
+    if (review[data] === undefined) throw new Error('Review data missing..');
+  }
+  if (!review.user.id) throw new Error('can not get user id pls try again later');
+  review.user = review.user.id;
   const userReview = await Reviews.create(review);
   book.reviews.push(userReview._id);
   await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
@@ -47,9 +64,10 @@ const addReview = async (id, review) => {
 
 const deleteReview = async (id, rid) => {
   if (id === undefined || rid === undefined) {
-    throw new Error('Missing required data  to delete review');
+    throw new Error('Missing required data to delete review');
   }
   const book = await Books.findById(id);
+  if (Object.keys(book) === 0) throw new Error('wrong id.');
   book.reviews.pull(rid);
   await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
   await Reviews.findByIdAndDelete(rid);
@@ -57,10 +75,14 @@ const deleteReview = async (id, rid) => {
 };
 
 const updateReview = async (rid, review) => {
-  if (review.comment === undefined && review.rate === undefined) {
-    throw new Error('No data to update');
+  if (rid === undefined) throw new Error('review id is not defined');
+  for (let data in review) {
+    if (review[data] === undefined) throw new Error('Review data missing..');
   }
+  if (!review.user.id) throw new Error('can not get user id pls try again later');
+  review.user = review.user.id;
   const oldReview = await Reviews.findById(rid);
+  if (Object.keys(oldReview) === 0) throw new Error('wrong id.');
   if (review.rate !== oldReview.rate) {
     recalculateRating(oldReview.book);
   }
@@ -72,9 +94,7 @@ const detailsPage = async (id) => {
     throw new Error('Missing required data to get details');
   }
   const book = await bookDetails(id);
-  if (book === null) {
-    throw new Error('Book not found');
-  }
+
   const relatedBooks = await Books.find({category: book.category}).limit(4);
   return {book, relatedBooks};
 };
