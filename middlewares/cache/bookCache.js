@@ -1,4 +1,4 @@
-import RedisClient from '../../server.js';
+import {RedisClient} from '../../server.js';
 
 const createBookKey = (book) => {
   return `book:${book._id.toString()}`;
@@ -36,20 +36,23 @@ const getCachedBook = async (book) => {
   }
 };
 const cacheBook = async (book) => {
-  if (!book) {
-    console.log('No books to cache.');
-    return;
+  try {
+    if (!book) {
+      console.log('No books to cache.');
+      return;
+    }
+
+    const bookKey = createBookKey(book);
+    const bookData = bookSchemaForCache(book);
+
+    if (!bookData || Object.keys(bookData).length === 0) {
+      console.warn(`Skipping empty book data for ${bookKey}`);
+    }
+    console.log(`Caching: ${bookKey}`);
+    await RedisClient.hSet(bookKey, bookData);
+  } catch (error) {
+    console.error('Error caching book:', error);
   }
-
-  const bookKey = createBookKey(book);
-  const bookData = bookSchemaForCache(book);
-
-  if (!bookData || Object.keys(bookData).length === 0) {
-    console.warn(`Skipping empty book data for ${bookKey}`);
-  }
-
-  RedisClient.hSet(bookKey, bookData);
-  RedisClient.expire(bookKey, 3600);
 };
 
 async function indexBook(book) {
@@ -62,8 +65,7 @@ const deleteFromCache = async (book) => {
   const bookKey = createBookKey(book);
   await RedisClient.del(bookKey);
   await RedisClient.zrem(`book:price`, book._id);
-  await RedisClient.zrem(`book:rating`, book._id);
-  // await RedisClient.srem(`books:category:${category}`, book._id);
+  await RedisClient.zrem(`book:rate`, book._id);
 };
 
 const updateCache = async (book) => {
@@ -93,10 +95,65 @@ const cacheByPage = async (page, books) => {
 
   if (!books || books.length === 0) return;
 
-  // 🔹 Store the books in Redis with a 10-minute expiration time
-  await RedisClient.hSet(cacheKey, 600, JSON.stringify(books));
+  await RedisClient.del(cacheKey); // Clear old cache
 
-  console.log(`📌 Cached ${books.length} books for page ${page}`);
+  for (const book of books) {
+    const bookKey = createBookKey(book);
+
+    await RedisClient.hSet(bookKey, bookSchemaForCache(book));
+    await RedisClient.rPush(cacheKey, bookKey);
+  }
+
+  // console.log(`📌 Cached ${books.length} books for page ${page}`);
+};
+
+const getPageCache = async (page) => {
+  try {
+    const cacheKey = `books:page:${page}`;
+    // console.log(`🔍 Checking cache for key: ${cacheKey}`);
+
+    const cachedReferences = await RedisClient.lRange(cacheKey, 0, -1);
+    // console.log(`📦 Raw cached references:`, cachedReferences);
+
+    if (!cachedReferences || cachedReferences.length === 0) return null;
+
+    const cachedBooks = [];
+    for (const ref of cachedReferences) {
+      const bookData = await RedisClient.hGetAll(ref);
+
+      if (Object.keys(bookData).length > 0) {
+        cachedBooks.push(bookSchemaFromCache(bookData));
+      } else {
+        console.warn(`⚠️ No data found for reference: ${ref}`);
+      }
+    }
+
+    // console.log(`Cached books for page ${page}:`, cachedBooks);
+    return cachedBooks.length > 0 ? cachedBooks : null;
+  } catch (error) {
+    console.error(`Error retrieving books from cache for page ${page}:`, error);
+  }
+};
+
+const getAllCachedBooks = async () => {
+  try {
+    const keys = await RedisClient.keys('book:*');
+    if (!keys.length) return [];
+
+    const allBooks = [];
+
+    for (const key of keys) {
+      const cachedBook = await RedisClient.hGetAll(key);
+      if (cachedBook && Object.keys(cachedBook).length > 0) {
+        allBooks.push(bookSchemaFromCache(cachedBook));
+      }
+    }
+
+    return allBooks;
+  } catch (error) {
+    console.error('Error retrieving cached books:', error);
+    return [];
+  }
 };
 
 export default {
@@ -110,6 +167,8 @@ export default {
   searchByPrice,
   updateCache,
   updateIndex,
-  cacheByPage
+  cacheByPage,
+  getPageCache,
+  getAllCachedBooks
 
 };

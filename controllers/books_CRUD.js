@@ -1,5 +1,5 @@
+import cache from '../middlewares/cache/bookCache.js';
 import Books from '../models/books.js';
-import RedisClient from '../server.js';
 
 const countRecords = async () => {
   const num = await Books.countDocuments({});
@@ -9,14 +9,12 @@ const countRecords = async () => {
 const homePage = async (req) => {
   let page = +req.query.page;
   if (req.query.page === undefined) page = 0;
-  if (page < 0 || page > countRecords() / 10) page = 0;
-  const cacheKey = `books:page:${page}`;
-  const cachedBooks = await RedisClient.hGetAll(cacheKey);
-  if (cachedBooks) {
-    return JSON.parse(cachedBooks);
-  }
-  if (req.cachedBooks) return req.cachedBooks;
+  if (page < 0 || page > await countRecords() / 10) page = 0;
+
+  const cachedBooks = await cache.getPageCache(page);
+  if (cachedBooks) return cachedBooks;
   const books = await Books.find({}, 'image title price').skip(page * 10).limit(10);
+  cache.cacheByPage(page, books);
   return books;
 };
 
@@ -24,9 +22,36 @@ const bookDetails = async (id) => {
   const book = await Books.findById(id);
   return book;
 };
+const searchBooks = async (req, res) => {
+  try {
+    const {title, author, minPrice, maxPrice} = req.query;
+
+    const query = {};
+
+    if (title) {
+      query.title = {$regex: title, $options: 'i'};
+    }
+
+    if (author) {
+      query.authors = {$regex: author, $options: 'i'};
+    }
+
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number.parseFloat(minPrice);
+      if (maxPrice) query.price.$lte = Number.parseFloat(maxPrice);
+    }
+
+    const books = await Books.find(query);
+    res.json(books);
+  } catch (error) {
+    res.status(500).json({error: 'Internal server error'});
+  }
+};
 
 export {
   bookDetails,
   countRecords,
-  homePage
+  homePage,
+  searchBooks
 };
