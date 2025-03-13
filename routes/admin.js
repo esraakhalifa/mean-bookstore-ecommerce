@@ -1,5 +1,6 @@
 import express from 'express';
-import * as AdminController from '../controllers/admin.js';
+import {AdminController} from '../controllers/index.js';
+
 import authenticate from '../middlewares/authenticate.js';
 import authorize from '../middlewares/authorize.js';
 import uploadMiddleware from '../middlewares/cdn.js';

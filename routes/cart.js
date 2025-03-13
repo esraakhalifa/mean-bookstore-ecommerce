@@ -1,5 +1,5 @@
 import express from 'express';
-import * as CartController from '../controllers/cart.js';
+import {CartController} from '../controllers/index.js';
 import authenticate from '../middlewares/authenticate.js';
 import {validateAddToCart, validateUpdateCartItem} from '../middlewares/validateCart.js';
 
