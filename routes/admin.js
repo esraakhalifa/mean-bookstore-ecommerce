@@ -14,5 +14,6 @@ router.get('/stats/users', authenticate, authorize('admin'), AdminController.get
 router.post('/users/disconnect', authenticate, authorize('admin'), AdminController.disconnectUser);
 router.post('/notifications/send', authenticate, authorize('admin'), AdminController.sendAdminNotification);
 router.post('/system/broadcast', authenticate, authorize('admin'), AdminController.broadcastSystemMessage);
+router.post('/system/health', authenticate, authorize('admin'), AdminController.getSystemHealth);
 
 export default router;

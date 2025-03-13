@@ -1,3 +1,4 @@
+import os from 'node:os';
 import process from 'node:process';
 import Notification from '../models/Notification.js';
 import User from '../models/users.js';
@@ -285,45 +286,6 @@ export const broadcastSystemMessage = async (req, res) => {
   }
 };
 
-export const getSystemHealth = async (req, res) => {
-  try {
-    const activeConnections = [...users.entries()].reduce((total, [_, userData]) => {
-      return total + userData.sockets.size;
-    }, 0);
-
-    const memoryUsage = process.memoryUsage();
-
-    const uptime = process.uptime();
-
-    const oneHourAgo = new Date();
-    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
-
-    const activeUsers = [...userActivity.entries()].filter(([_, activity]) => {
-      return activity.lastActive >= oneHourAgo;
-    }).length;
-
-    return res.status(200).json({
-      activeConnections,
-      activeUsers,
-      memory: {
-        rss: Math.round(memoryUsage.rss / 1024 / 1024),
-        heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-        heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-        external: Math.round(memoryUsage.external / 1024 / 1024)
-      },
-      uptime: {
-        seconds: Math.round(uptime),
-        minutes: Math.round(uptime / 60),
-        hours: Math.round(uptime / 60 / 60),
-        days: Math.round(uptime / 60 / 60 / 24)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching system health:', error);
-    return res.status(500).json({message: 'Internal server error'});
-  }
-};
-
 export const disconnectAllUserInstances = async (req, res) => {
   try {
     const {userId} = req.body;
@@ -397,5 +359,91 @@ export const sendAdminNotification = async (req, res) => {
   } catch (error) {
     console.error('Error sending admin notifications:', error);
     return res.status(500).json({message: 'Internal server error'});
+  }
+};
+
+function getCpuUsage() {
+  const cpus = os.cpus();
+  let totalIdle = 0;
+  let totalTick = 0;
+
+  cpus.forEach((cpu) => {
+    for (let type in cpu.times) {
+      totalTick += cpu.times[type];
+    }
+    totalIdle += cpu.times.idle;
+  });
+
+  return {
+    idle: totalIdle,
+    total: totalTick
+  };
+}
+
+export const getSystemHealth = async (req, res) => {
+  try {
+    // System memory details
+    const totalMemory = os.totalmem();
+    const freeMemory = os.freemem();
+    const usedMemory = totalMemory - freeMemory;
+
+    // Process memory usage
+    const processMemory = process.memoryUsage();
+
+    // Uptime details
+    const systemUptime = os.uptime();
+    const processUptime = process.uptime();
+
+    // Example: Active connections (assuming a Map of users and their sockets)
+    const activeConnections = [...users.entries()].reduce((total, [_, userData]) => {
+      return total + userData.sockets.size;
+    }, 0);
+
+    // Example: Active users in the last hour (assuming a userActivity Map)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const activeUsers = [...userActivity.entries()].filter(([_, activity]) => {
+      return activity.lastActive >= oneHourAgo;
+    }).length;
+
+    // CPU Usage calculation (take two samples with a small delay)
+    const startUsage = getCpuUsage();
+    await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+    const endUsage = getCpuUsage();
+
+    const idleDiff = endUsage.idle - startUsage.idle;
+    const totalDiff = endUsage.total - startUsage.total;
+    const cpuUsagePercentage = totalDiff > 0 ? ((totalDiff - idleDiff) / totalDiff) * 100 : 0;
+
+    // Response with system health data
+    return res.status(200).json({
+      uptime: systemUptime,
+      memory: {
+        used: usedMemory,
+        total: totalMemory
+      },
+      process: {
+        memory: {
+          rss: processMemory.rss,
+          heapTotal: processMemory.heapTotal,
+          heapUsed: processMemory.heapUsed,
+          external: processMemory.external
+        },
+        uptime: processUptime,
+        pid: process.pid
+      },
+      cpu: {
+        usage: cpuUsagePercentage.toFixed(2), // CPU usage as a percentage
+        cores: os.cpus().length // Number of CPU cores
+      },
+      versions: {
+        node: process.version
+      },
+      env: process.env.NODE_ENV || 'development',
+      activeConnections,
+      activeUsers
+    });
+  } catch (error) {
+    console.error('Error fetching system health:', error);
+    return res.status(500).json({message: 'Failed to fetch system health'});
   }
 };
