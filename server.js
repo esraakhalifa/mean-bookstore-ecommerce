@@ -6,11 +6,14 @@ import express from 'express';
 import session from 'express-session';
 import connectDB from './config/db.js';
 import passport from './config/passport.js';
+import errorHandler from './middlewares/errorHandler.js';
+import requestLogger from './middlewares/requestLogger.js';
 import router from './routes/index.js';
 import {initSocket} from './utils/socketHelper.js';
 
 dotenv.config();
 const app = express();
+app.use(requestLogger);
 const PORT = process.env.PORT || 5000;
 
 const server = createServer(app);
@@ -19,7 +22,6 @@ initSocket(server);
 
 app.use(cors());
 app.use(express.json());
-app.use(router);
 
 connectDB();
 
@@ -36,6 +38,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use(router);
+app.use(errorHandler);
 
 server.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
