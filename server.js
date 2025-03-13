@@ -20,7 +20,7 @@ const server = createServer(app);
 
 initSocket(server);
 
-app.use(cors());
+app.use(cors({origin: 'http://localhost:4200', credentials: true}));
 app.use(express.json());
 
 connectDB();

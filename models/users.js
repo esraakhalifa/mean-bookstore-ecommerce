@@ -63,7 +63,10 @@ const UserSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 UserSchema.pre('save', function (next) {
-  if (this.password) {
+  if (this.password && !this.isModified('password')) {
+    // if (!strongPassword.test(this.password)) {
+    //   return next(new Error('Password must contain at least one lowercase letter, one uppercase letter, one digit, one special character, and be at least 8 characters long.'));
+    // }
     this.password = bcrypt.hashSync(this.password, 10);
   }
   next();

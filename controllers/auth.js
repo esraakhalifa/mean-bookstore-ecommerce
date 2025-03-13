@@ -6,22 +6,22 @@ import User from '../models/users.js';
 import * as authUtils from '../utils/authHelper.js';
 
 export const getLogin = (req, res, next) => {
-  // res.render('auth/login', {
-  //     path: '/login',
-  // });
-  // render the login frontend page
+  if (req.isAuthenticated()) {
+    return res.redirect('/home');
+  }
 };
 
 export const getSignup = (req, res, next) => {
-  // res.render('auth/signup', {
-  //     path: '/signup',
-  // });
-  // render the signup frontend page
+  if (req.isAuthenticated()) {
+    return res.redirect('/home');
+  }
 };
 
 export const googleAuth = passport.authenticate('google', {scope: ['profile', 'email']});
 
-export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});
+export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});/*, (req, res) => {
+  res.redirect(`http://localhost:4200/login?token=${req.user.token}`);
+});*/
 
 export const googleAuthSuccess = (req, res) => {
   res.redirect('/home');
@@ -42,42 +42,39 @@ export const postLogin = (req, res, next) => {
     return res.redirect('/login');
   }
 
-  User.findOne({email})
+  User.findOne({ email })
     .then((user) => {
       if (!user) {
-        return res.status(404).json({message: 'User not found'});
+        return res.status(404).json({ message: 'User not found' });
       }
       bcrypt
         .compare(password, user.password)
-        .then((doMatch) => {
+        .then(async (doMatch) => {
           if (doMatch) {
-            console.log('user logged success');
-            const tokens = authUtils.generateTokens(user);
-            res.json({accessToken: tokens.accessToken, refreshToken: tokens.refreshToken});
-            // go to home page with user signed in
-            return;
+            const tokens = await authUtils.generateTokens(user);
+            return res.status(200).json({ accessToken: tokens.AccessToken, refreshToken: tokens.RefreshToken });
           }
-          return res.status(401).json({message: 'Invalid credentials'});
+          return res.status(401).json({ message: 'Invalid credentials' });
         })
         .catch((err) => {
           console.log(err);
-          res.status(500).json({message: 'Internal server error'});
+          res.status(500).json({ message: 'Internal server error' });
         });
     })
     .catch((err) => {
       console.log(err);
-      res.status(500).json({message: 'Internal server error'});
+      res.status(500).json({ message: 'Internal server error' });
     });
 };
 
 export const postSignup = (req, res, next) => {
   const {
-    email,
-    password,
-    confirmPassword,
     firstName,
     lastName,
     userName,
+    email,
+    password,
+    confirmPassword,
     profile
   } = req.body;
 

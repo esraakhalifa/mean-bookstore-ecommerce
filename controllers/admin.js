@@ -1,7 +1,8 @@
 import os from 'node:os';
 import process from 'node:process';
+import Books from '../models/books.js';
 import Notification from '../models/Notification.js';
-import User from '../models/users.js';
+import Users from '../models/users.js';
 import {getIO, userActivity, users} from '../utils/socketHelper.js';
 
 export const getOnlineUsers = async (req, res) => {
@@ -33,7 +34,7 @@ export const getOnlineUsers = async (req, res) => {
 
     const paginatedUserIds = onlineUserIds.slice(skip, skip + limit);
 
-    const userDetails = await User.find(
+    const userDetails = await Users.find(
       {_id: {$in: paginatedUserIds}},
       'firstName lastName email role'
     );
@@ -77,9 +78,9 @@ export const getUserActivityStats = async (req, res) => {
       ([_, userData]) => userData.sockets.size > 0
     ).length;
 
-    const totalUsers = await User.countDocuments();
+    const totalUsers = await Users.countDocuments();
 
-    const usersByRole = await User.aggregate([
+    const usersByRole = await Users.aggregate([
       {
         $group: {
           _id: '$role',
@@ -218,7 +219,7 @@ export const getAllConnectionsSummary = async (req, res) => {
       return res.status(200).json(summary);
     }
 
-    const userDetails = await User.find(
+    const userDetails = await Users.find(
       {_id: {$in: onlineUserIds}},
       'role'
     );
@@ -368,7 +369,7 @@ function getCpuUsage() {
   let totalTick = 0;
 
   cpus.forEach((cpu) => {
-    for (let type in cpu.times) {
+    for (const type in cpu.times) {
       totalTick += cpu.times[type];
     }
     totalIdle += cpu.times.idle;
@@ -445,5 +446,127 @@ export const getSystemHealth = async (req, res) => {
   } catch (error) {
     console.error('Error fetching system health:', error);
     return res.status(500).json({message: 'Failed to fetch system health'});
+  }
+};
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await Users.find();
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({message: 'Failed to fetch users', error: err.message});
+  }
+};
+
+export const getAllBooks = async (req, res) => {
+  try {
+    const books = await Books.find();
+    const totalBooks = await Books.countDocuments();
+    res.json({books, totalBooks});
+  } catch (err) {
+    res.status(500).json({message: 'Failed to fetch books', error: err.message});
+  }
+};
+
+export const getBook = async (req, res) => {
+  try {
+    const {id} = req.params;
+    const book = await Books
+      .findById(id)
+      .populate('reviews')
+      .exec();
+
+    if (!book) {
+      return res.status(404).json({message: 'Book not found'});
+    }
+
+    res.json(book);
+  } catch (err) {
+    res.status(500).json({message: 'Failed to fetch book', error: err.message});
+  }
+};
+
+export const deleteBook = async (req, res) => {
+  try {
+    const {id} = req.params;
+    const deletedBook = await Books.findByIdAndDelete(id);
+    if (!deletedBook) {
+      return res.status(404).json({message: 'Book not found'});
+    }
+    res.json({message: 'Book deleted successfully'});
+  } catch (err) {
+    res.status(500).json({message: 'Failed to delete book', error: err.message});
+  }
+};
+
+export const uploadBook = async (req, res) => {
+  try {
+    const {title, price, authors, description, stock, img} = req.body;
+
+    const imageUrl = req.file ? req.file.path : (img || null);
+
+    const newBook = new Books({
+      title,
+      price: Number(price),
+      authors: authors ? JSON.parse(authors) : [],
+      description,
+      stock: stock ? Number(stock) : 0,
+      img: imageUrl
+    });
+
+    const savedBook = await newBook.save();
+    console.log('Book saved successfully:', savedBook);
+
+    res.status(201).json(savedBook);
+  } catch (err) {
+    console.error('Error uploading book:', err);
+    res.status(500).json({message: 'Failed to upload book', error: err.message});
+  }
+};
+
+export const updateBook = async (req, res) => {
+  try {
+    const {id} = req.params;
+    const {title, price, authors, description, stock, img} = req.body;
+
+    const imageUrl = req.file ? req.file.path : (img || null);
+
+    const updateData = {
+      title,
+      price: Number(price),
+      description,
+      stock: Number(stock)
+    };
+
+    if (authors) updateData.authors = JSON.parse(authors);
+    if (imageUrl) updateData.img = imageUrl;
+
+    const updatedBook = await Books.findByIdAndUpdate(
+      id,
+      updateData,
+      {new: true}
+    );
+
+    if (!updatedBook) {
+      return res.status(404).json({message: 'Book not found'});
+    }
+
+    res.json(updatedBook);
+  } catch (err) {
+    console.error('Error updating book:', err);
+    res.status(500).json({message: 'Failed to update book', error: err.message});
+  }
+};
+
+export const deleteUser = async (req, res) => {
+  try {
+    const {id} = req.params;
+    const deletedUser = await Users.findByIdAndDelete(id);
+    if (!deletedUser) {
+      return res.status(404).json({message: 'User not found'});
+    }
+    res.json({message: 'User deleted successfully'});
+  } catch (err) {
+    res.status(500).json({message: 'Failed to delete user', error: err.message});
   }
 };
