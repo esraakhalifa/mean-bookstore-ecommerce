@@ -1,16 +1,15 @@
 import jwt from 'jsonwebtoken';
 
 const authenticate = (req, res, next) => {
-  // Check if user is authenticated via OAuth (session-based)
   if (req.isAuthenticated && req.isAuthenticated()) {
     return next();
   }
 
-  // Check if user is authenticated via JWT
-  const token = req.header('Authorization')?.split(' ')[1];
+  const authHeader = req.header('Authorization');
+  const token = authHeader?.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({message: 'Access denied. No token provided.'});
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
   }
 
   try {
@@ -18,7 +17,7 @@ const authenticate = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(400).json({message: 'Invalid token.'});
+    res.status(400).json({ message: 'Invalid token.' });
   }
 };
 

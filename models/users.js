@@ -25,8 +25,8 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required() { return !this.googleId },
-    match: strongPassword
+    required: function() { return !this.googleId },
+    //match: strongPassword
   },
   isVerified: {
     type: Boolean,
@@ -37,10 +37,10 @@ const UserSchema = new mongoose.Schema({
     enum: ['customer', 'admin'],
     required: true
   },
-  cart: {
+  /*cart: {
     books: [{type: mongoose.Schema.Types.ObjectId, ref: 'Book'}],
     totalAmount: {type: Number, min: 1, default: 1}
-  },
+  },*/
   profile: {
     addresses: [{
       street: String,
@@ -60,7 +60,10 @@ const UserSchema = new mongoose.Schema({
 }, {timestamps: true});
 
 UserSchema.pre('save', function (next) {
-  if (this.password) {
+  if (this.password && !this.isModified('password')) {
+    if (!strongPassword.test(this.password)) {
+      return next(new Error('Password must contain at least one lowercase letter, one uppercase letter, one digit, one special character, and be at least 8 characters long.'));
+    }
     this.password = bcrypt.hashSync(this.password, 10);
   }
   next();

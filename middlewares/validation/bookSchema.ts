@@ -13,7 +13,7 @@ export const BookSchema = z.object({
 
   reviews: z.array(z.string().regex(/^[0-9a-f]{24}$/i, 'Invalid Review ID')).optional(),
 
-  img: z.string(),
+  //img: z.string(),
   // .url('Invalid image URL')
 })
 export type Book = z.infer<typeof BookSchema>

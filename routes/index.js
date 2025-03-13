@@ -2,9 +2,11 @@ import express from 'express';
 import authRouter from './auth.js';
 import homePage from './books_CRUD.js';
 import usersRouter from './users.js';
+import adminRoutes from './admin.js';
 
 const router = express.Router();
 
+router.use('/admin', adminRoutes);
 router.use('/user', usersRouter);
 router.use(authRouter);
 router.use(homePage);
