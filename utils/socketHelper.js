@@ -2,7 +2,6 @@ import process from 'node:process';
 import {RateLimiterMemory} from 'rate-limiter-flexible';
 import {Server} from 'socket.io';
 import {authenticate, checkMaximumInstances} from '../middlewares/sockets.js';
-import Notification from '../models/Notification.js';
 
 let io;
 const users = new Map(); // userId -> { sockets: Map<socketId, metadata>, history: Array }
@@ -69,20 +68,6 @@ export const initSocket = (server) => {
       socket.join('admin-channel');
     }
 
-    try {
-      const unreadNotifications = await Notification.find(
-        {user: userId, read: false},
-        null,
-        {sort: {createdAt: -1}, limit: 10}
-      );
-
-      if (unreadNotifications.length > 0) {
-        socket.emit('unread-notifications', unreadNotifications);
-      }
-    } catch (error) {
-      console.error('Error fetching unread notifications:', error);
-    }
-
     socket.on('track-book', (bookId) => {
       if (!trackedBooks.has(bookId)) {
         trackedBooks.set(bookId, new Set());
@@ -95,11 +80,6 @@ export const initSocket = (server) => {
         userActivity.get(userId).status = status;
         userActivity.get(userId).lastActive = new Date();
       }
-
-      io.to('admin-channel').emit('user-status-change', {
-        userId,
-        status
-      });
     });
 
     socket.on('ping', () => {
