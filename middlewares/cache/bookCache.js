@@ -95,7 +95,7 @@ const cacheByPage = async (page, books) => {
 
   if (!books || books.length === 0) return;
 
-  await RedisClient.del(cacheKey); // Clear old cache
+  await RedisClient.del(cacheKey);
 
   for (const book of books) {
     const bookKey = createBookKey(book);
@@ -103,17 +103,12 @@ const cacheByPage = async (page, books) => {
     await RedisClient.hSet(bookKey, bookSchemaForCache(book));
     await RedisClient.rPush(cacheKey, bookKey);
   }
-
-  // console.log(`📌 Cached ${books.length} books for page ${page}`);
 };
 
 const getPageCache = async (page) => {
   try {
     const cacheKey = `books:page:${page}`;
-    // console.log(`🔍 Checking cache for key: ${cacheKey}`);
-
     const cachedReferences = await RedisClient.lRange(cacheKey, 0, -1);
-    // console.log(`📦 Raw cached references:`, cachedReferences);
 
     if (!cachedReferences || cachedReferences.length === 0) return null;
 
@@ -128,7 +123,6 @@ const getPageCache = async (page) => {
       }
     }
 
-    // console.log(`Cached books for page ${page}:`, cachedBooks);
     return cachedBooks.length > 0 ? cachedBooks : null;
   } catch (error) {
     console.error(`Error retrieving books from cache for page ${page}:`, error);

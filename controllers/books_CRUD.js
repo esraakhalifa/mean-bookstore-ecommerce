@@ -3,6 +3,7 @@ import Books from '../models/books.js';
 
 const countRecords = async () => {
   const num = await Books.countDocuments({});
+  console.log('count api triggered');
   return num;
 };
 
@@ -33,7 +34,7 @@ const searchBooks = async (req, res) => {
     }
 
     if (author) {
-      query.authors = {$regex: author, $options: 'i'};
+      query.authors = {$elemMatch: {$regex: author.trim(), $options: 'i'}};
     }
 
     if (minPrice || maxPrice) {
@@ -42,7 +43,10 @@ const searchBooks = async (req, res) => {
       if (maxPrice) query.price.$lte = Number.parseFloat(maxPrice);
     }
 
+    // console.log('Search Query:', query);
     const books = await Books.find(query);
+    // console.log('Search Results:', books);
+
     res.json(books);
   } catch (error) {
     res.status(500).json({error: 'Internal server error'});

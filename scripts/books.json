@@ -138,5 +138,77 @@
     "language": "English",
     "rate": 4.9,
     "numPages": 281
+  },
+
+  {
+    "title": "1984",
+    "authors": ["George Orwell"],
+    "price": 15.99,
+    "description": "A dystopian novel about totalitarianism.",
+    "stock": 20,
+    "reviews": [],
+    "img": "https://images-na.ssl-images-amazon.com/images/I/71kxa1-0mfL.jpg",
+    "category": "Drama",
+    "ISBN": "9780451524935",
+    "language": "English",
+    "rate": 4.8,
+    "numPages": 328
+  },
+  {
+    "title": "Brave New World",
+    "authors": ["Aldous Huxley"],
+    "price": 17.99,
+    "description": "A futuristic novel about a controlled society.",
+    "stock": 18,
+    "reviews": [],
+    "img": "https://images-na.ssl-images-amazon.com/images/I/81t2CVWEsUL.jpg",
+    "category": "Drama",
+    "ISBN": "9780060850524",
+    "language": "English",
+    "rate": 4.6,
+    "numPages": 288
+  },
+  {
+    "title": "The Catcher in the Rye",
+    "authors": ["J.D. Salinger"],
+    "price": 13.99,
+    "description": "A classic coming-of-age novel.",
+    "stock": 22,
+    "reviews": [],
+    "img": "https://images-na.ssl-images-amazon.com/images/I/71Ofdx+EZ6L.jpg",
+    "category": "Drama",
+    "ISBN": "9780316769488",
+    "language": "English",
+    "rate": 4.5,
+    "numPages": 214
+  },
+  {
+    "title": "Moby-Dick",
+    "authors": ["Herman Melville"],
+    "price": 16.50,
+    "description": "An epic tale of obsession and revenge.",
+    "stock": 12,
+    "reviews": [],
+    "img": "https://images-na.ssl-images-amazon.com/images/I/81QvXzjV6BL.jpg",
+    "category": "Thriller",
+    "ISBN": "9781503280786",
+    "language": "English",
+    "rate": 4.2,
+    "numPages": 585
+  },
+  {
+    "title": "War and Peace",
+    "authors": ["Leo Tolstoy"],
+    "price": 25.99,
+    "description": "A historical epic about Russia during the Napoleonic Wars.",
+    "stock": 10,
+    "reviews": [],
+    "img": "https://images-na.ssl-images-amazon.com/images/I/91pR7Ett3LL.jpg",
+    "category": "History",
+    "ISBN": "9781400079988",
+    "language": "English",
+    "rate": 4.7,
+    "numPages": 1225
   }
+
 ]
