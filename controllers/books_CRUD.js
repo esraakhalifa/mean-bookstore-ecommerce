@@ -1,108 +1,154 @@
 import Books from '../models/books.js';
 import Reviews from '../models/reviews.js';
 
+// Helper to match reviews by IDs
 const arrayMatch = async (reviewsIDs) => {
   const reviewsArray = await Reviews.find({_id: {$in: reviewsIDs}});
   return reviewsArray;
 };
 
-const countRecords = async () => {
-  const num = await Books.countDocuments({});
-  return num;
+// Count total number of books
+const countRecords = async (req, res) => {
+  try {
+    const num = await Books.countDocuments({});
+    return res.json({status: 200, message: 'Count retrieved successfully', count: num});
+  } catch (error) {
+    console.error(error);
+    return res.json({status: 500, message: 'Failed to count records'});
+  }
 };
 
+// Recalculate rating based on reviews
 const recalculateRating = async (id) => {
   const book = await Books.findById(id);
-  if (Object.keys(book) === 0) throw new Error('There is no book with this id.');
-  let reviews = [];
-  if (book.reviews.length > 0) {
-    reviews = await arrayMatch(book.reviews);
-  }
+  if (!book) return;
+
+  const reviews = await arrayMatch(book.reviews);
   let total = 0;
-  reviews.forEach((review) => {
-    total += review.rating;
-  });
-  const avg = total / reviews.length;
+  reviews.forEach((review) => total += review.rating);
+  const avg = total / reviews.length || 0; // Avoid NaN if no reviews
+
   await Books.findByIdAndUpdate(id, {rate: avg.toFixed(1)});
 };
 
-const homePage = async (query) => {
-  if (query.page === undefined) query.page = 0;
-  if (query.page < 0 || query.page > countRecords() / 10) {
-    throw new Error('Invalid page number');
+// Get home page books with pagination
+const homePage = async (req, res, page) => {
+  try {
+    if (page === undefined) page = 0;
+    const total = await Books.countDocuments({});
+    if (page < 0 || page > total / 10) {
+      return res.json({status: 400, message: 'Invalid page number'});
+    }
+    const books = await Books.find({}, 'image title price').skip(page * 10).limit(10);
+    return res.json({status: 200, message: 'Books retrieved successfully', books});
+  } catch (error) {
+    console.error(error);
+    return res.json({status: 500, message: 'Failed to retrieve books'});
   }
-  const {page, ...filters} = query;
-  const books = await Books.find(filters, 'image title price category rate').skip(page * 10).limit(10);
-  return books;
 };
 
-const bookDetails = async (id) => {
-  const book = await Books.findById(id);
-  if (Object.keys(book).length === 0) {
-    throw new Error('Book not found');
+// Get book details
+const bookDetails = async (req, res, id) => {
+  try {
+    const book = await Books.findById(id);
+    if (!book) return res.json({status: 404, message: 'Book not found'});
+
+    const bookObj = book.toObject();
+    bookObj.reviews = await arrayMatch(book.reviews);
+
+    return res.json({status: 200, message: 'Book details retrieved successfully', book: bookObj});
+  } catch (error) {
+    console.error(error);
+    return res.json({status: 500, message: 'Failed to retrieve book details'});
   }
-  if (book.reviews.length > 0) {
-    book.reviews = await arrayMatch(book.reviews);
-  }
-  return book;
 };
 
-const addReview = async (id, review) => {
-  if (id === undefined) throw new Error('Missing id');
-  const book = await Books.findById(id);
-  if (Object.keys(book) === 0) throw new Error('there is no book with this id.');
-  for (let data in review) {
-    if (review[data] === undefined) throw new Error('Review data missing..');
+// Add a review to a book
+const addReview = async (req, res, id, review) => {
+  try {
+    const book = await Books.findById(id);
+    if (!book) return res.json({status: 404, message: 'Book not found'});
+
+    const userReview = await Reviews.create(review);
+    book.reviews.push(userReview._id);
+    await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
+    await recalculateRating(id);
+
+    return res.json({status: 200, message: 'Review added successfully'});
+  } catch (error) {
+    console.error(error);
+    return res.json({status: 500, message: 'Failed to add review'});
   }
-  if (!review.user.id) throw new Error('can not get user id pls try again later');
-  review.user = review.user.id;
-  const userReview = await Reviews.create(review);
-  book.reviews.push(userReview._id);
-  await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
-  await recalculateRating(id);
 };
 
-const deleteReview = async (id, rid, user) => {
-  if (id === undefined || rid === undefined) {
-    throw new Error('Missing required data to delete review');
+// Delete a review from a book
+const deleteReview = async (req, res, id, rid) => {
+  try {
+    if (!id || !rid) return res.json({status: 400, message: 'Missing required data to delete review'});
+
+    const book = await Books.findById(id);
+    if (!book) return res.json({status: 404, message: 'Book not found'});
+
+    book.reviews.pull(rid);
+    await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
+    await Reviews.findByIdAndDelete(rid);
+    await recalculateRating(id);
+
+    return res.json({status: 200, message: 'Review deleted successfully'});
+  } catch (error) {
+    console.error(error);
+    return res.json({status: 500, message: 'Failed to delete review'});
   }
-  if (!user.id) throw new Error('can not get user id pls try again later');
-  const review = await Reviews.findOne({_id: rid});
-  if (Object.keys(review) === 0) throw new Error('Wrong review id.');
-  if (review.user.toString() !== user.id.toSrting()) throw new Error('authorization failed');
-  const book = await Books.findById(id);
-  if (Object.keys(book) === 0) throw new Error('wrong id.');
-  book.reviews.pull(rid);
-  await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
-  await Reviews.findByIdAndDelete(rid);
-  await recalculateRating(id);
 };
 
-const updateReview = async (rid, review) => {
-  if (rid === undefined) throw new Error('review id is not defined');
-  for (let data in review) {
-    if (review[data] === undefined) throw new Error('Review data missing..');
+// Update a review
+const updateReview = async (req, res, rid, review) => {
+  try {
+    if (review.comment === undefined && review.rate === undefined) {
+      return res.json({status: 400, message: 'No data to update'});
+    }
+
+    const oldReview = await Reviews.findById(rid);
+    if (!oldReview) return res.json({status: 404, message: 'Review not found'});
+
+    await Reviews.findByIdAndUpdate(rid, review);
+
+    if (review.rate !== undefined && review.rate !== oldReview.rate) {
+      await recalculateRating(oldReview.book);
+    }
+
+    return res.json({status: 200, message: 'Review updated successfully'});
+  } catch (error) {
+    console.error(error);
+    return res.json({status: 500, message: 'Failed to update review'});
   }
-  if (!review.user.id) throw new Error('can not get user id pls try again later');
-  review.user = review.user.id;
-  const oldReview = await Reviews.findById(rid);
-  if (Object.keys(oldReview) === 0) throw new Error('wrong id.');
-  if (review.rate !== oldReview.rate) {
-    recalculateRating(oldReview.book);
-  }
-  await Reviews.findByIdAndUpdate(rid, review);
 };
 
-const detailsPage = async (id) => {
-  if (id === undefined) {
-    throw new Error('Missing required data to get details');
-  }
-  const book = await bookDetails(id);
+// Get book details + related books for details page
+const detailsPage = async (req, res, id) => {
+  try {
+    if (id === undefined) return res.json({status: 400, message: 'Missing required data to get details'});
 
-  const relatedBooks = await Books.find({category: book.category}).limit(4);
-  return {book, relatedBooks};
+    const book = await Books.findById(id);
+    if (!book) return res.json({status: 404, message: 'Book not found'});
+
+    const bookObj = book.toObject();
+    bookObj.reviews = await arrayMatch(book.reviews);
+    const relatedBooks = await Books.find({category: book.category}).limit(4);
+
+    return res.json({
+      status: 200,
+      message: 'Book details and related books retrieved successfully',
+      book: bookObj,
+      relatedBooks
+    });
+  } catch (error) {
+    console.error(error);
+    return res.json({status: 500, message: 'Failed to retrieve details'});
+  }
 };
 
+// Export all handlers
 export {
   addReview,
   bookDetails,
