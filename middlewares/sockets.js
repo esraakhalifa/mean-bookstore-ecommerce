@@ -1,12 +1,13 @@
 import process from 'node:process';
 import jwt from 'jsonwebtoken';
+import CustomError from '../utils/CustomError.js';
 
 export const authenticate = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token || socket.handshake.query.token;
 
     if (!token) {
-      return next(new Error('Authentication token is required'));
+      throw new CustomError('Authentication token is required', 401);
     }
 
     const decodedData = jwt.verify(token, process.env.JWT_SECRET);
@@ -25,7 +26,12 @@ export const authenticate = async (socket, next) => {
     next();
   } catch (error) {
     console.error('Socket authentication error:', error.message);
-    next(new Error('Authentication error'));
+
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      throw new CustomError('Invalid or expired token', 401);
+    }
+
+    next(new CustomError('Authentication error', 401));
   }
 };
 
@@ -41,7 +47,7 @@ export const checkMaximumInstances = (users) => {
 
       const userData = users.get(userId);
       if (userData.sockets.size >= MAX_CONNECTIONS_PER_USER) {
-        return next(new Error('Maximum connection limit reached'));
+        throw new CustomError('Maximum connection limit reached', 403);
       }
 
       next();

@@ -3,9 +3,10 @@ import process from 'node:process';
 import Books from '../models/books.js';
 import Notification from '../models/Notification.js';
 import Users from '../models/users.js';
+import CustomError from '../utils/CustomError.js';
 import {getIO, userActivity, users} from '../utils/socketHelper.js';
 
-export const getOnlineUsers = async (req, res) => {
+export const getOnlineUsers = async (req, res, next) => {
   try {
     const page = Number.parseInt(req.query.page) || 1;
     const limit = Number.parseInt(req.query.limit) || 10;
@@ -67,12 +68,11 @@ export const getOnlineUsers = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching online users:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getUserActivityStats = async (req, res) => {
+export const getUserActivityStats = async (req, res, next) => {
   try {
     const onlineUsersCount = [...users.entries()].filter(
       ([_, userData]) => userData.sockets.size > 0
@@ -112,24 +112,23 @@ export const getUserActivityStats = async (req, res) => {
       statusCounts
     });
   } catch (error) {
-    console.error('Error fetching user activity stats:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getUserConnections = async (req, res) => {
+export const getUserConnections = async (req, res, next) => {
   try {
     const userId = req.params.userId;
     const detailed = req.query.detailed === 'true';
 
     if (!users.has(userId)) {
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     const userData = users.get(userId);
 
     if (userData.sockets.size === 0) {
-      return res.status(404).json({message: 'User is not online'});
+      throw new CustomError('User is not online', 404);
     }
 
     const connections = [];
@@ -149,17 +148,16 @@ export const getUserConnections = async (req, res) => {
 
     return res.status(200).json(connections);
   } catch (error) {
-    console.error('Error fetching user connections:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getUserActivityHistory = async (req, res) => {
+export const getUserActivityHistory = async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
     if (!users.has(userId)) {
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     const userData = users.get(userId);
@@ -173,36 +171,34 @@ export const getUserActivityHistory = async (req, res) => {
       lastActive
     });
   } catch (error) {
-    console.error('Error fetching user activity history:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const disconnectUser = async (req, res) => {
+export const disconnectUser = async (req, res, next) => {
   try {
     const {userId, socketId} = req.body;
     const io = getIO();
 
     if (!userId || !socketId) {
-      return res.status(400).json({message: 'User ID and Socket ID are required'});
+      throw new CustomError('User ID and Socket ID are required', 400);
     }
 
     const socket = io.sockets.sockets.get(socketId);
 
     if (!socket) {
-      return res.status(404).json({message: 'Socket connection not found'});
+      throw new CustomError('Socket connection not found', 404);
     }
 
     socket.disconnect(true);
 
     return res.status(200).json({message: 'User disconnected successfully'});
   } catch (error) {
-    console.error('Error disconnecting user:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getAllConnectionsSummary = async (req, res) => {
+export const getAllConnectionsSummary = async (req, res, next) => {
   try {
     const summary = {
       totalConnections: 0,
@@ -258,18 +254,17 @@ export const getAllConnectionsSummary = async (req, res) => {
 
     return res.status(200).json(summary);
   } catch (error) {
-    console.error('Error fetching connections summary:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const broadcastSystemMessage = async (req, res) => {
+export const broadcastSystemMessage = async (req, res, next) => {
   try {
     const {message, type} = req.body;
     const io = getIO();
 
     if (!message || !type) {
-      return res.status(400).json({message: 'Message and type are required'});
+      throw new CustomError('Message and type are required', 400);
     }
 
     io.emit('system-message', {
@@ -282,29 +277,28 @@ export const broadcastSystemMessage = async (req, res) => {
       message: 'System message broadcast successfully'
     });
   } catch (error) {
-    console.error('Error broadcasting system message:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const disconnectAllUserInstances = async (req, res) => {
+export const disconnectAllUserInstances = async (req, res, next) => {
   try {
     const {userId} = req.body;
     const io = getIO();
 
     if (!userId) {
-      return res.status(400).json({message: 'User ID is required'});
+      throw new CustomError('User ID is required', 400);
     }
 
     if (!users.has(userId)) {
-      return res.status(404).json({message: 'User not found or not connected'});
+      throw new CustomError('User not found or not connected', 404);
     }
 
     const userData = users.get(userId);
     const socketIds = [...userData.sockets.keys()];
 
     if (socketIds.length === 0) {
-      return res.status(404).json({message: 'User has no active connections'});
+      throw new CustomError('User has no active connections', 404);
     }
 
     for (const socketId of socketIds) {
@@ -319,17 +313,16 @@ export const disconnectAllUserInstances = async (req, res) => {
       disconnectedSockets: socketIds.length
     });
   } catch (error) {
-    console.error('Error disconnecting user:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const sendAdminNotification = async (req, res) => {
+export const sendAdminNotification = async (req, res, next) => {
   try {
     const {userIds, message, type} = req.body;
 
     if (!Array.isArray(userIds) || userIds.length === 0 || !message || !type) {
-      return res.status(400).json({message: 'User IDs array, message and type are required'});
+      throw new CustomError('User IDs array, message and type are required', 400);
     }
 
     const notifications = userIds.map((userId) => ({
@@ -358,8 +351,7 @@ export const sendAdminNotification = async (req, res) => {
       count: createdNotifications.length
     });
   } catch (error) {
-    console.error('Error sending admin notifications:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
@@ -381,7 +373,7 @@ function getCpuUsage() {
   };
 }
 
-export const getSystemHealth = async (req, res) => {
+export const getSystemHealth = async (req, res, next) => {
   try {
     // System memory details
     const totalMemory = os.totalmem();
@@ -444,31 +436,30 @@ export const getSystemHealth = async (req, res) => {
       activeUsers
     });
   } catch (error) {
-    console.error('Error fetching system health:', error);
-    return res.status(500).json({message: 'Failed to fetch system health'});
+    next(error);
   }
 };
 
-export const getAllUsers = async (req, res) => {
+export const getAllUsers = async (req, res, next) => {
   try {
     const users = await Users.find();
     res.json(users);
-  } catch (err) {
-    res.status(500).json({message: 'Failed to fetch users', error: err.message});
+  } catch (error) {
+    next(error);
   }
 };
 
-export const getAllBooks = async (req, res) => {
+export const getAllBooks = async (req, res, next) => {
   try {
     const books = await Books.find();
     const totalBooks = await Books.countDocuments();
     res.json({books, totalBooks});
-  } catch (err) {
-    res.status(500).json({message: 'Failed to fetch books', error: err.message});
+  } catch (error) {
+    next(error);
   }
 };
 
-export const getBook = async (req, res) => {
+export const getBook = async (req, res, next) => {
   try {
     const {id} = req.params;
     const book = await Books
@@ -477,29 +468,29 @@ export const getBook = async (req, res) => {
       .exec();
 
     if (!book) {
-      return res.status(404).json({message: 'Book not found'});
+      throw new CustomError('Book not found', 404);
     }
 
     res.json(book);
-  } catch (err) {
-    res.status(500).json({message: 'Failed to fetch book', error: err.message});
+  } catch (error) {
+    next(error);
   }
 };
 
-export const deleteBook = async (req, res) => {
+export const deleteBook = async (req, res, next) => {
   try {
     const {id} = req.params;
     const deletedBook = await Books.findByIdAndDelete(id);
     if (!deletedBook) {
-      return res.status(404).json({message: 'Book not found'});
+      throw new CustomError('Book not found', 404);
     }
     res.json({message: 'Book deleted successfully'});
-  } catch (err) {
-    res.status(500).json({message: 'Failed to delete book', error: err.message});
+  } catch (error) {
+    next(error);
   }
 };
 
-export const uploadBook = async (req, res) => {
+export const uploadBook = async (req, res, next) => {
   try {
     const {title, price, authors, description, stock, img} = req.body;
 
@@ -515,16 +506,13 @@ export const uploadBook = async (req, res) => {
     });
 
     const savedBook = await newBook.save();
-    console.log('Book saved successfully:', savedBook);
-
     res.status(201).json(savedBook);
-  } catch (err) {
-    console.error('Error uploading book:', err);
-    res.status(500).json({message: 'Failed to upload book', error: err.message});
+  } catch (error) {
+    next(error);
   }
 };
 
-export const updateBook = async (req, res) => {
+export const updateBook = async (req, res, next) => {
   try {
     const {id} = req.params;
     const {title, price, authors, description, stock, img} = req.body;
@@ -548,25 +536,24 @@ export const updateBook = async (req, res) => {
     );
 
     if (!updatedBook) {
-      return res.status(404).json({message: 'Book not found'});
+      throw new CustomError('Book not found', 404);
     }
 
     res.json(updatedBook);
-  } catch (err) {
-    console.error('Error updating book:', err);
-    res.status(500).json({message: 'Failed to update book', error: err.message});
+  } catch (error) {
+    next(error);
   }
 };
 
-export const deleteUser = async (req, res) => {
+export const deleteUser = async (req, res, next) => {
   try {
     const {id} = req.params;
     const deletedUser = await Users.findByIdAndDelete(id);
     if (!deletedUser) {
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
     res.json({message: 'User deleted successfully'});
-  } catch (err) {
-    res.status(500).json({message: 'Failed to delete user', error: err.message});
+  } catch (error) {
+    next(error);
   }
 };

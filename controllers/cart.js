@@ -1,8 +1,9 @@
 import mongoose from 'mongoose';
 import Books from '../models/books.js';
 import Users from '../models/users.js';
+import CustomError from '../utils/CustomError.js';
 
-export const getCart = async (req, res) => {
+export const getCart = async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const {page = 1, limit = 10} = req.query;
@@ -13,7 +14,7 @@ export const getCart = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     const cartItems = user.cart.books.map((item) => {
@@ -47,12 +48,11 @@ export const getCart = async (req, res) => {
       totalPages: Math.ceil(cartItems.length / limit)
     });
   } catch (error) {
-    console.error('Error fetching cart:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const addToCart = async (req, res) => {
+export const addToCart = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -61,23 +61,17 @@ export const addToCart = async (req, res) => {
     const userId = req.user.userId;
 
     if (quantity < 1) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({message: 'Quantity must be at least 1'});
+      throw new CustomError('Quantity must be at least 1', 400);
     }
 
     const book = await Books.findById(bookId).session(session);
     if (!book) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'Book not found'});
+      throw new CustomError('Book not found', 404);
     }
 
     const user = await Users.findById(userId).session(session);
     if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     if (!user.cart) {
@@ -88,10 +82,7 @@ export const addToCart = async (req, res) => {
     if (bookInCart) {
       const newQuantity = bookInCart.quantity + quantity;
       if (book.stock < newQuantity) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          message: 'Not enough stock available',
+        throw new CustomError('Not enough stock available', 400, {
           available: book.stock,
           requested: newQuantity
         });
@@ -99,10 +90,7 @@ export const addToCart = async (req, res) => {
       bookInCart.quantity = newQuantity;
     } else {
       if (book.stock < quantity) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          message: 'Not enough stock available',
+        throw new CustomError('Not enough stock available', 400, {
           available: book.stock,
           requested: quantity
         });
@@ -123,12 +111,11 @@ export const addToCart = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Error adding to cart:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const removeFromCart = async (req, res) => {
+export const removeFromCart = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -138,29 +125,21 @@ export const removeFromCart = async (req, res) => {
 
     const book = await Books.findById(bookId).session(session);
     if (!book) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'Book not found'});
+      throw new CustomError('Book not found', 404);
     }
 
     const user = await Users.findById(userId).session(session);
     if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     if (!user.cart || !user.cart.books.length) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({message: 'Cart is empty'});
+      throw new CustomError('Cart is empty', 400);
     }
 
     const bookIndex = user.cart.books.findIndex((item) => item.bookId.toString() === bookId);
     if (bookIndex === -1) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({message: 'This book is not in your cart'});
+      throw new CustomError('This book is not in your cart', 400);
     }
 
     const {quantity} = user.cart.books[bookIndex];
@@ -179,12 +158,11 @@ export const removeFromCart = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Error removing from cart:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const updateCartItem = async (req, res) => {
+export const updateCartItem = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -193,36 +171,26 @@ export const updateCartItem = async (req, res) => {
     const userId = req.user.userId;
 
     if (quantity < 0) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({message: 'Quantity cannot be negative'});
+      throw new CustomError('Quantity cannot be negative', 400);
     }
 
     const book = await Books.findById(bookId).session(session);
     if (!book) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'Book not found'});
+      throw new CustomError('Book not found', 404);
     }
 
     const user = await Users.findById(userId).session(session);
     if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     if (!user.cart || !user.cart.books.length) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({message: 'Cart is empty'});
+      throw new CustomError('Cart is empty', 400);
     }
 
     const bookInCart = user.cart.books.find((item) => item.bookId.toString() === bookId);
     if (!bookInCart) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({message: 'This book is not in your cart'});
+      throw new CustomError('This book is not in your cart', 400);
     }
 
     if (quantity === 0) {
@@ -230,10 +198,7 @@ export const updateCartItem = async (req, res) => {
       user.cart.books = user.cart.books.filter((item) => item.bookId.toString() !== bookId);
     } else {
       if (book.stock < quantity) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          message: 'Not enough stock available',
+        throw new CustomError('Not enough stock available', 400, {
           available: book.stock,
           requested: quantity
         });
@@ -254,12 +219,11 @@ export const updateCartItem = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Error updating cart item:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const clearCart = async (req, res) => {
+export const clearCart = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -268,9 +232,7 @@ export const clearCart = async (req, res) => {
 
     const user = await Users.findById(userId).session(session);
     if (!user) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     user.cart = {books: [], totalAmount: 0};
@@ -286,25 +248,23 @@ export const clearCart = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Error clearing cart:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getCartCount = async (req, res) => {
+export const getCartCount = async (req, res, next) => {
   try {
     const userId = req.user.userId;
 
     const user = await Users.findById(userId);
     if (!user) {
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     const cartSize = user.cart && user.cart.books ? user.cart.books.length : 0;
 
     return res.status(200).json({cartSize});
   } catch (error) {
-    console.error('Error getting cart count:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };

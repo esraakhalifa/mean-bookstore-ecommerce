@@ -20,7 +20,7 @@ const logger = createLogger({
 });
 
 const requestLogger = (req, _res, next) => {
-  const sanitizedUrl = req.url.replace(/\/verify\/[^/]+/, '/verify/***'); // Example: Sanitize tokens in URLs
+  const sanitizedUrl = req.url.replace(/\/verify\/[^/]+/, '/verify/***'); // sanitize tokens in URLs
   logger.info(`${req.method} ${sanitizedUrl} - IP: ${req.ip}`);
   next();
 };

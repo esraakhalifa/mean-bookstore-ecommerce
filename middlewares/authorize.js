@@ -1,11 +1,16 @@
+import CustomError from '../utils/CustomError.js';
+
 const authorize = (roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({message: 'Access denied. You do not have permission.'});
+    try {
+      if (!roles.includes(req.user.role)) {
+        throw new CustomError('Access denied. You do not have permission.', 403);
+      }
+      next();
+    } catch (error) {
+      next(error);
     }
-    next();
   };
 };
 
 export default authorize;
-

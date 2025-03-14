@@ -3,9 +3,10 @@ import Book from '../models/books.js';
 import Notification from '../models/Notification.js';
 import Order from '../models/orders.js';
 import User from '../models/users.js';
+import CustomError from '../utils/CustomError.js';
 import {notifyAdminsUserOrder, notifyUser} from './sockets.js';
 
-export const createOrder = async (req, res) => {
+export const createOrder = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -14,27 +15,20 @@ export const createOrder = async (req, res) => {
 
     const userExists = await User.findById(user);
     if (!userExists) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
 
     const bookIds = books.map((item) => item.bookId);
     const booksToUpdate = await Book.find({_id: {$in: bookIds}}).session(session);
 
     if (booksToUpdate.length !== bookIds.length) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'One or more books not found'});
+      throw new CustomError('One or more books not found', 404);
     }
 
     for (const item of books) {
       const book = booksToUpdate.find((b) => b._id.toString() === item.bookId.toString());
       if (book.stock < item.quantity) {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(400).json({
-          message: `Insufficient stock for book: ${book.title}`,
+        throw new CustomError(`Insufficient stock for book: ${book.title}`, 400, {
           available: book.stock,
           requested: item.quantity
         });
@@ -82,15 +76,11 @@ export const createOrder = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
- //   console.error('Error creating order:', error);
-    if (error.message.includes('Insufficient stock')) {
-      return res.status(400).json({message: error.message});
-    }
-    return res.status(500).json({message: 'Failed to create order'});
+    next(error);
   }
 };
 
-export const getOrders = async (req, res) => {
+export const getOrders = async (req, res, next) => {
   try {
     const page = Number.parseInt(req.query.page) || 1;
     const limit = Number.parseInt(req.query.limit) || 10;
@@ -122,12 +112,11 @@ export const getOrders = async (req, res) => {
       pagination: {total, page, limit, pages}
     });
   } catch (error) {
- //   console.error('Error fetching orders:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getOrderById = async (req, res) => {
+export const getOrderById = async (req, res, next) => {
   try {
     const orderId = req.params.id;
 
@@ -136,21 +125,20 @@ export const getOrderById = async (req, res) => {
       .populate('books', 'title price img');
 
     if (!order) {
-      return res.status(404).json({message: 'Order not found'});
+      throw new CustomError('Order not found', 404);
     }
 
     return res.status(200).json(order);
   } catch (error) {
-    //console.error('Error fetching order:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getUserOrders = async (req, res) => {
+export const getUserOrders = async (req, res, next) => {
   try {
     const userId = req.params.userId;
     if (!userId) {
-      return res.status(404).json({message: 'User not found'});
+      throw new CustomError('User not found', 404);
     }
     const page = Number.parseInt(req.query.page) || 1;
     const limit = Number.parseInt(req.query.limit) || 10;
@@ -175,12 +163,11 @@ export const getUserOrders = async (req, res) => {
       }
     });
   } catch (error) {
-//    console.error('Error fetching user orders:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const updateOrder = async (req, res) => {
+export const updateOrder = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -191,9 +178,7 @@ export const updateOrder = async (req, res) => {
     const order = await Order.findById(orderId).populate('user', 'firstName lastName');
 
     if (!order) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'Order not found'});
+      throw new CustomError('Order not found', 404);
     }
 
     if (status) {
@@ -235,12 +220,11 @@ export const updateOrder = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
- //   console.error('Error updating order:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const deleteOrder = async (req, res) => {
+export const deleteOrder = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -250,9 +234,7 @@ export const deleteOrder = async (req, res) => {
     const order = await Order.findById(orderId);
 
     if (!order) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({message: 'Order not found'});
+      throw new CustomError('Order not found', 404);
     }
 
     for (const bookId of order.books) {
@@ -291,12 +273,11 @@ export const deleteOrder = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-//    console.error('Error deleting order:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getPopularBooks = async (req, res) => {
+export const getPopularBooks = async (req, res, next) => {
   try {
     const limit = Number.parseInt(req.query.limit) || 10;
 
@@ -339,7 +320,6 @@ export const getPopularBooks = async (req, res) => {
 
     return res.status(200).json(popularBooks);
   } catch (error) {
- //   console.error('Error fetching popular books:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };

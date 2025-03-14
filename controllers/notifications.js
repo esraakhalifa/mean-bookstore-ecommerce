@@ -1,12 +1,13 @@
 import Notification from '../models/Notification.js';
+import CustomError from '../utils/CustomError.js';
 import {notifyUser} from './sockets.js';
 
-export const createNotification = async (req, res) => {
+export const createNotification = async (req, res, next) => {
   try {
     const {userId, message, type, metadata} = req.body;
 
     if (!userId || !message || !type) {
-      return res.status(400).json({message: 'Missing required fields'});
+      throw new CustomError('Missing required fields', 400);
     }
 
     const notification = new Notification({
@@ -29,12 +30,11 @@ export const createNotification = async (req, res) => {
 
     return res.status(201).json(notification);
   } catch (error) {
-    console.error('Error creating notification:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getUserNotifications = async (req, res) => {
+export const getUserNotifications = async (req, res, next) => {
   try {
     const userId = req.params.userId;
     const {page = 1, limit = 10, read} = req.query;
@@ -61,12 +61,11 @@ export const getUserNotifications = async (req, res) => {
       totalNotifications: total
     });
   } catch (error) {
-    console.error('Error fetching notifications:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const markAsRead = async (req, res) => {
+export const markAsRead = async (req, res, next) => {
   try {
     const notificationId = req.params.id;
 
@@ -77,17 +76,16 @@ export const markAsRead = async (req, res) => {
     );
 
     if (!notification) {
-      return res.status(404).json({message: 'Notification not found'});
+      throw new CustomError('Notification not found', 404);
     }
 
     return res.status(200).json(notification);
   } catch (error) {
-    console.error('Error marking notification as read:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const markAllAsRead = async (req, res) => {
+export const markAllAsRead = async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
@@ -101,29 +99,27 @@ export const markAllAsRead = async (req, res) => {
       count: result.modifiedCount
     });
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const deleteNotification = async (req, res) => {
+export const deleteNotification = async (req, res, next) => {
   try {
     const notificationId = req.params.id;
 
     const notification = await Notification.findByIdAndDelete(notificationId);
 
     if (!notification) {
-      return res.status(404).json({message: 'Notification not found'});
+      throw new CustomError('Notification not found', 404);
     }
 
     return res.status(200).json({message: 'Notification deleted successfully'});
   } catch (error) {
-    console.error('Error deleting notification:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const deleteAllNotifications = async (req, res) => {
+export const deleteAllNotifications = async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
@@ -134,12 +130,11 @@ export const deleteAllNotifications = async (req, res) => {
       count: result.deletedCount
     });
   } catch (error) {
-    console.error('Error deleting all notifications:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getNotificationStats = async (req, res) => {
+export const getNotificationStats = async (req, res, next) => {
   try {
     const stats = await Notification.aggregate([
       {
@@ -158,12 +153,11 @@ export const getNotificationStats = async (req, res) => {
 
     return res.status(200).json(stats);
   } catch (error) {
-    console.error('Error getting notification stats:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };
 
-export const getUnreadCount = async (req, res) => {
+export const getUnreadCount = async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
@@ -174,7 +168,6 @@ export const getUnreadCount = async (req, res) => {
 
     return res.status(200).json({count});
   } catch (error) {
-    console.error('Error getting unread count:', error);
-    return res.status(500).json({message: 'Internal server error'});
+    next(error);
   }
 };

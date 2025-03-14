@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import User from '../models/users.js';
 import * as authUtils from '../utils/authHelper.js';
+import CustomError from '../utils/CustomError.js';
 
 export const getLogin = (req, res, next) => {
   if (req.isAuthenticated()) {
@@ -21,55 +22,43 @@ export const googleAuth = passport.authenticate('google', {scope: ['profile', 'e
 
 export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});
 
-/* , (req, res) => {
-  res.redirect(`http://localhost:4200/login?token=${req.user.token}`);
-}); */
-
 export const googleAuthSuccess = (req, res) => {
   res.redirect('/home');
 };
 
 export const getProfile = (req, res) => {
   if (!req.isAuthenticated()) {
-    return res.redirect('/login');
+    throw new CustomError('Unauthorized: Please log in', 401);
   }
   res.send(`Welcome, ${req.user.displayName}`);
 };
 
-export const postLogin = (req, res, next) => {
-  const email = req.body.email;
-  const password = req.body.password;
+export const postLogin = async (req, res, next) => {
+  const {email, password} = req.body;
 
   if (!email || !password) {
-    return res.redirect('/login');
+    throw new CustomError('Email and password are required', 400);
   }
 
-  User.findOne({email})
-    .then((user) => {
-      if (!user) {
-        return res.status(404).json({message: 'User not found'});
-      }
-      bcrypt
-        .compare(password, user.password)
-        .then(async (doMatch) => {
-          if (doMatch) {
-            const tokens = await authUtils.generateTokens(user);
-            return res.status(200).json({accessToken: tokens.AccessToken, refreshToken: tokens.RefreshToken});
-          }
-          return res.status(401).json({message: 'Invalid credentials'});
-        })
-        .catch((err) => {
-          console.log(err);
-          res.status(500).json({message: 'Internal server error'});
-        });
-    })
-    .catch((err) => {
-      console.log(err);
-      res.status(500).json({message: 'Internal server error'});
-    });
+  try {
+    const user = await User.findOne({email});
+    if (!user) {
+      throw new CustomError('User not found', 404);
+    }
+
+    const doMatch = await bcrypt.compare(password, user.password);
+    if (!doMatch) {
+      throw new CustomError('Invalid credentials', 401);
+    }
+
+    const tokens = await authUtils.generateTokens(user);
+    res.status(200).json({accessToken: tokens.AccessToken, refreshToken: tokens.RefreshToken});
+  } catch (err) {
+    next(err); // Pass the error to the error handling middleware
+  }
 };
 
-export const postSignup = (req, res, next) => {
+export const postSignup = async (req, res, next) => {
   const {
     firstName,
     lastName,
@@ -85,51 +74,45 @@ export const postSignup = (req, res, next) => {
   const userProfile = profile ? structuredClone(profile) : {addresses: [], phone_numbers: []};
 
   if (!email || !password || !confirmPassword) {
-    return res.status(400).json({message: 'All fields are required'});
+    throw new CustomError('All fields are required', 400);
   }
 
   if (password !== confirmPassword) {
-    return res.status(400).json({message: 'Passwords do not match'});
+    throw new CustomError('Passwords do not match', 400);
   }
-  User.findOne({email})
-    .then((userDoc) => {
-      if (userDoc) {
-        return res.status(409).json({message: 'User already exists'});
-      }
 
-      return bcrypt
-        .hash(password, 12)
-        .then((hashedPassword) => {
-          const user = new User({
-            email,
-            password: hashedPassword,
-            firstName,
-            lastName,
-            userName,
-            profile: userProfile,
-            isVerified,
-            cart: {books: [], totalAmount: 0},
-            payment_details: {card: [], online_wallet: undefined},
-            role
-          });
-          console.log('user is created');
-          return user.save();
-        })
-        .then((result) => {
-          res.status(201).json({message: 'User created successfully'});
-        });
-    })
-    .catch((err) => {
-      console.log(err);
-      res.status(500).json({message: 'Internal server error'});
+  try {
+    const userDoc = await User.findOne({email});
+    if (userDoc) {
+      throw new CustomError('User already exists', 409);
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = new User({
+      email,
+      password: hashedPassword,
+      firstName,
+      lastName,
+      userName,
+      profile: userProfile,
+      isVerified,
+      cart: {books: [], totalAmount: 0},
+      payment_details: {card: [], online_wallet: undefined},
+      role
     });
+
+    await user.save();
+    res.status(201).json({message: 'User created successfully'});
+  } catch (err) {
+    next(err); // Pass the error to the error handling middleware
+  }
 };
 
 export const postLogout = (req, res, next) => {
   const refreshToken = req.body.refreshToken;
 
   if (!refreshToken) {
-    return res.status(400).json({message: 'Refresh Token is required'});
+    throw new CustomError('Refresh Token is required', 400);
   }
 
   authUtils.removeRefreshToken(refreshToken);
@@ -140,14 +123,14 @@ export const postRefresh = (req, res, next) => {
   const refreshToken = req.body.refreshToken;
 
   if (!refreshToken) {
-    return res.status(401).json({message: 'Refresh Token is required'});
+    throw new CustomError('Refresh Token is required', 401);
   }
 
   try {
     const tokens = authUtils.refreshToken(refreshToken);
-    return res.json(tokens);
+    res.json(tokens);
   } catch (err) {
-    return res.status(403).json({message: 'Invalid Refresh Token'});
+    throw new CustomError('Invalid Refresh Token', 403);
   }
 };
 
@@ -159,6 +142,6 @@ export const emailVerify = async (req, res, next) => {
 
     res.status(200).json({message: 'Email verified, you can log in'});
   } catch (err) {
-    res.status(400).json({message: 'Invalid or expired token'});
+    throw new CustomError('Invalid or expired token', 400);
   }
 };

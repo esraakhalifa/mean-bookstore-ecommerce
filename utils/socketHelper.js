@@ -2,6 +2,7 @@ import process from 'node:process';
 import {RateLimiterMemory} from 'rate-limiter-flexible';
 import {Server} from 'socket.io';
 import {authenticate, checkMaximumInstances} from '../middlewares/sockets.js';
+import CustomError from '../utils/CustomError.js';
 
 let io;
 const users = new Map(); // userId -> { sockets: Map<socketId, metadata>, history: Array }
@@ -24,8 +25,8 @@ export const initSocket = (server) => {
     try {
       await rateLimiter.consume(socket.handshake.address);
       next();
-    } catch {
-      next(new Error('Rate limit exceeded'));
+    } catch (error) {
+      next(new CustomError('Rate limit exceeded', 429));
     }
   });
 
@@ -131,9 +132,9 @@ export const initSocket = (server) => {
 };
 
 export const getIO = () => {
-  if (!io) throw new Error('Socket.io not initialized');
+  if (!io) throw new CustomError('Socket.io not initialized', 500);
   if (!io.httpServer || !io.httpServer.listening) {
-    throw new Error('Socket.io server not connected');
+    throw new CustomError('Socket.io server not connected', 500);
   }
   return io;
 };

@@ -1,3 +1,4 @@
+import CustomError from '../utils/CustomError.js';
 import {AddToCartSchema, UpdateCartItemSchema} from './validation/cartSchema.js';
 
 export const validateAddToCart = (req, res, next) => {
@@ -6,8 +7,7 @@ export const validateAddToCart = (req, res, next) => {
     req.body = validatedData;
     next();
   } catch (error) {
-    return res.status(400).json({
-      message: 'Validation error',
+    throw new CustomError('Validation error', 400, {
       errors: error.errors || error.message
     });
   }
@@ -19,8 +19,7 @@ export const validateUpdateCartItem = (req, res, next) => {
     req.body = validatedData;
     next();
   } catch (error) {
-    return res.status(400).json({
-      message: 'Validation error',
+    throw new CustomError('Validation error', 400, {
       errors: error.errors || error.message
     });
   }
