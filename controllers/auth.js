@@ -19,9 +19,11 @@ export const getSignup = (req, res, next) => {
 
 export const googleAuth = passport.authenticate('google', {scope: ['profile', 'email']});
 
-export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});/*, (req, res) => {
+export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});
+
+/* , (req, res) => {
   res.redirect(`http://localhost:4200/login?token=${req.user.token}`);
-});*/
+}); */
 
 export const googleAuthSuccess = (req, res) => {
   res.redirect('/home');
@@ -42,28 +44,28 @@ export const postLogin = (req, res, next) => {
     return res.redirect('/login');
   }
 
-  User.findOne({ email })
+  User.findOne({email})
     .then((user) => {
       if (!user) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({message: 'User not found'});
       }
       bcrypt
         .compare(password, user.password)
         .then(async (doMatch) => {
           if (doMatch) {
             const tokens = await authUtils.generateTokens(user);
-            return res.status(200).json({ accessToken: tokens.AccessToken, refreshToken: tokens.RefreshToken });
+            return res.status(200).json({accessToken: tokens.AccessToken, refreshToken: tokens.RefreshToken});
           }
-          return res.status(401).json({ message: 'Invalid credentials' });
+          return res.status(401).json({message: 'Invalid credentials'});
         })
         .catch((err) => {
           console.log(err);
-          res.status(500).json({ message: 'Internal server error' });
+          res.status(500).json({message: 'Internal server error'});
         });
     })
     .catch((err) => {
       console.log(err);
-      res.status(500).json({ message: 'Internal server error' });
+      res.status(500).json({message: 'Internal server error'});
     });
 };
 
@@ -80,7 +82,7 @@ export const postSignup = (req, res, next) => {
 
   const isVerified = false;
   const role = 'customer';
-  const userProfile = profile ? structuredClone(profile) : {};
+  const userProfile = profile ? structuredClone(profile) : {addresses: [], phone_numbers: []};
 
   if (!email || !password || !confirmPassword) {
     return res.status(400).json({message: 'All fields are required'});
@@ -107,6 +109,7 @@ export const postSignup = (req, res, next) => {
             profile: userProfile,
             isVerified,
             cart: {books: [], totalAmount: 0},
+            payment_details: {card: [], online_wallet: undefined},
             role
           });
           console.log('user is created');
