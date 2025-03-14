@@ -24,7 +24,7 @@ export const googleAuthCallback = passport.authenticate('google', {failureRedire
 });*/
 
 export const googleAuthSuccess = (req, res) => {
-  res.redirect('/home');
+  res.redirect('http://localhost:4200/home');
 };
 
 export const getProfile = (req, res) => {
@@ -96,7 +96,7 @@ export const postSignup = (req, res, next) => {
       }
 
       return bcrypt
-        .hash(password, 12)
+        .hash(password, 10)
         .then((hashedPassword) => {
           const user = new User({
             email,

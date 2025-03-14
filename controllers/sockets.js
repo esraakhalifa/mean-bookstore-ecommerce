@@ -1,4 +1,4 @@
-import {getIO, trackedBooks, userActivity, users} from '../utils/socketHelper.js';
+import {getIO, trackedBooks, userActivity, usersData} from '../utils/socketHelper.js';
 
 export const notifyUser = (userId, data) => {
   const io = getIO();
@@ -62,7 +62,7 @@ export const untrackUser = (userId) => {
 };
 
 export const untrackAllUsers = () => {
-  for (const userId of users.keys()) {
+  for (const userId of usersData.keys()) {
     untrackUser(userId);
   }
 };
@@ -70,7 +70,7 @@ export const untrackAllUsers = () => {
 export const notifyUsersByRole = (role, data) => {
   const io = getIO();
 
-  for (const [userId, userData] of users.entries()) {
+  for (const [userId, userData] of usersData.entries()) {
     if (userData.role === role && userData.sockets.size > 0) {
       io.to(`user-${userId}`).emit('notification', data);
     }
@@ -83,7 +83,7 @@ export const notifyActiveUsers = (data, timeThreshold = 15) => {
   thresholdTime.setMinutes(thresholdTime.getMinutes() - timeThreshold);
 
   for (const [userId, activity] of userActivity.entries()) {
-    if (activity.lastActive >= thresholdTime && users.has(userId) && users.get(userId).sockets.size > 0) {
+    if (activity.lastActive >= thresholdTime && usersData.has(userId) && users.get(userId).sockets.size > 0) {
       io.to(`user-${userId}`).emit('notification', data);
     }
   }

@@ -31,16 +31,15 @@ const recalculateRating = async (id) => {
   await Books.findByIdAndUpdate(id, {rate: avg.toFixed(1)});
 };
 
-// Get home page books with pagination
-const homePage = async (req, res, page) => {
+const homePage = async (req, res, page, limit) => {
   try {
-    if (page === undefined) page = 0;
     const total = await Books.countDocuments({});
-    if (page < 0 || page > total / 10) {
+    if (page < 0 || page > Math.ceil(total / limit)) {
       return res.json({status: 400, message: 'Invalid page number'});
     }
-    const books = await Books.find({}, 'image title price').skip(page * 10).limit(10);
-    return res.json({status: 200, message: 'Books retrieved successfully', books});
+    // Updated to include description and use img instead of image
+    const books = await Books.find({}, 'img title price description').skip(page * limit).limit(limit);
+    return res.json({status: 200, message: 'Books retrieved successfully', books, total});
   } catch (error) {
     console.error(error);
     return res.json({status: 500, message: 'Failed to retrieve books'});
