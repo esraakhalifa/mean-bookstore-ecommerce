@@ -6,7 +6,6 @@ import session from 'express-session';
 import {createClient} from 'redis';
 import connectDB from './config/db.js';
 import passport from './config/passport.js';
-// import cache from './middlewares/cache/bookCache.js';
 import router from './routes/index.js';
 
 dotenv.config();
@@ -27,6 +26,17 @@ app.use(
     cookie: {secure: false} // Set to true if using HTTPS
   })
 );
+
+export const RedisClient = createClient({
+  url: 'redis://localhost:6379'
+});
+RedisClient.on('error', (err) => console.log('Redis Client Error', err));
+
+async function connectRedis() {
+  await RedisClient.connect();
+  console.log('Redis Connected');
+}
+connectRedis();
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -49,11 +59,3 @@ async function connectRedis() {
 export default {RedisClient};
 connectRedis();
 
-// (async () => {
-//   // await cacheBooks(1, dummy);
-//   await cacheBooks(1, dummy).catch((err) => {
-//     console.log(err);
-//   });
-//   const cachedBooks = await getArrayofCachedBooks(1);
-//   console.log('Cached Books:', cachedBooks);
-// })();
