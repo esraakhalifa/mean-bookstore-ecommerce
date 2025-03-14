@@ -1,13 +1,52 @@
 import Books from '../models/books.js';
 import Reviews from '../models/reviews.js';
+import Users from '../models/users.js';
 
-// Helper to match reviews by IDs
 const arrayMatch = async (reviewsIDs) => {
-  const reviewsArray = await Reviews.find({_id: {$in: reviewsIDs}});
-  return reviewsArray;
+  try {
+    const reviewsArray = await Reviews.find({_id: {$in: reviewsIDs}});
+
+    const reviewsWithNames = await Promise.all(
+      reviewsArray.map(async (element) => {
+        try {
+          if (!element.user) {
+            console.warn('Review has no user:', element._id);
+            return {
+              ...element.toObject(),
+              name: 'Unknown User'
+            };
+          }
+
+          const userData = await Users.findById(element.user);
+
+          if (!userData) {
+            console.warn('User not found for review:', element._id);
+            return {
+              ...element.toObject(),
+              name: 'Unknown User'
+            };
+          }
+
+          return {
+            ...element.toObject(),
+            name: `${userData.firstName} ${userData.lastName}`
+          };
+        } catch (error) {
+          console.error('Error fetching user data for review:', element._id, error);
+          return {
+            ...element.toObject(),
+            name: 'Unknown User'
+          };
+        }
+      })
+    );
+    return reviewsWithNames;
+  } catch (error) {
+    console.error('Error in arrayMatch:', error);
+    throw error;
+  }
 };
 
-// Count total number of books
 const countRecords = async (req, res) => {
   try {
     const num = await Books.countDocuments({});
@@ -18,17 +57,41 @@ const countRecords = async (req, res) => {
   }
 };
 
-// Recalculate rating based on reviews
 const recalculateRating = async (id) => {
-  const book = await Books.findById(id);
-  if (!book) return;
+  try {
+    // Find the book by ID
+    const book = await Books.findById(id);
+    if (!book) {
+      console.error('Book not found');
+      return;
+    }
 
-  const reviews = await arrayMatch(book.reviews);
-  let total = 0;
-  reviews.forEach((review) => total += review.rating);
-  const avg = total / reviews.length || 0; // Avoid NaN if no reviews
+    const reviewIds = Array.isArray(book.reviews) ? book.reviews : [];
 
-  await Books.findByIdAndUpdate(id, {rate: avg.toFixed(1)});
+    // Use your existing function to get reviews with user names
+    const reviewsWithNames = await arrayMatch(reviewIds);
+
+    // Handle case where there are no reviews
+    if (reviewsWithNames.length === 0) {
+      await Books.findByIdAndUpdate(id, {rate: 0});
+      return;
+    }
+
+    // Calculate total rating safely
+    const total = reviewsWithNames.reduce((sum, review) => {
+      const rating = Number(review.rating);
+      return sum + (Number.isNaN(rating) ? 0 : rating); // Ignore invalid ratings
+    }, 0);
+
+    // Calculate average and round to 1 decimal place
+    const avg = total / reviewsWithNames.length;
+    const roundedAvg = Number(avg.toFixed(1));
+
+    // Update the book's rating
+    await Books.findByIdAndUpdate(id, {rate: roundedAvg}, {new: true});
+  } catch (error) {
+    console.error('Error recalculating rating:', error);
+  }
 };
 
 const homePage = async (req, res, page, limit) => {
@@ -46,7 +109,6 @@ const homePage = async (req, res, page, limit) => {
   }
 };
 
-// Get book details
 const bookDetails = async (req, res, id) => {
   try {
     const book = await Books.findById(id);
@@ -62,7 +124,6 @@ const bookDetails = async (req, res, id) => {
   }
 };
 
-// Get book details + related books for details page
 const detailsPage = async (req, res, id) => {
   try {
     if (id === undefined) return res.json({status: 400, message: 'Missing required data to get details'});
@@ -86,20 +147,15 @@ const detailsPage = async (req, res, id) => {
   }
 };
 
-// Add a review to a book
-const addReview = async (req, res, id, review, user) => {
+const addReview = async (req, res, id, review) => {
   try {
-    // Check if user is logged in
-    if (!user) {
+    if (!req.user) {
       return res.json({status: 401, message: 'Unauthorized: User not logged in'});
     }
-
     const book = await Books.findById(id);
     if (!book) return res.json({status: 404, message: 'Book not found'});
 
-    // Add user ID to the review
-    review.user = user._id;
-
+    review.user = req.user.userId;
     const userReview = await Reviews.create(review);
     book.reviews.push(userReview._id);
     await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
@@ -112,11 +168,9 @@ const addReview = async (req, res, id, review, user) => {
   }
 };
 
-// Update a review
-const updateReview = async (req, res, rid, review, user) => {
+const updateReview = async (req, res, rid, review) => {
   try {
-    // Check if user is logged in
-    if (!user) {
+    if (!req.user) {
       return res.json({status: 401, message: 'Unauthorized: User not logged in'});
     }
 
@@ -127,14 +181,12 @@ const updateReview = async (req, res, rid, review, user) => {
     const oldReview = await Reviews.findById(rid);
     if (!oldReview) return res.json({status: 404, message: 'Review not found'});
 
-    // Check if the user updating the review is the same user who created it
-    if (oldReview.user.toString() !== user._id.toString()) {
+    if (oldReview.user.toString() !== req.user.userId.toString()) {
       return res.json({status: 403, message: 'Forbidden: You can only update your own reviews'});
     }
 
-    review.user = review.user._id;
+    review.user = req.user.userId;
 
-    // Update the review
     await Reviews.findByIdAndUpdate(rid, review);
 
     if (review.rate !== undefined && review.rate !== oldReview.rate) {
@@ -148,11 +200,9 @@ const updateReview = async (req, res, rid, review, user) => {
   }
 };
 
-// Delete a review from a book
-const deleteReview = async (req, res, id, rid, user) => {
+const deleteReview = async (req, res, id, rid) => {
   try {
-    // Check if user is logged in
-    if (!user) {
+    if (!req.user) {
       return res.json({status: 401, message: 'Unauthorized: User not logged in'});
     }
 
@@ -164,12 +214,11 @@ const deleteReview = async (req, res, id, rid, user) => {
     const review = await Reviews.findById(rid);
     if (!review) return res.json({status: 404, message: 'Review not found'});
 
-    // Check if the user deleting the review is the same user who created it
-    if (review.user.toString() !== user._id.toString()) {
+    if (review.user.toString() !== req.user.userId.toString()) {
       return res.json({status: 403, message: 'Forbidden: You can only delete your own reviews'});
     }
 
-    review.user = review.user._id;
+    review.user = req.user.userId;
 
     book.reviews.pull(rid);
     await Books.findByIdAndUpdate(id, {reviews: book.reviews}, {new: true});
@@ -182,7 +231,7 @@ const deleteReview = async (req, res, id, rid, user) => {
     return res.json({status: 500, message: 'Failed to delete review'});
   }
 };
-// Export all handlers
+
 export {
   addReview,
   bookDetails,
