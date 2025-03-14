@@ -1,5 +1,5 @@
 import Books from '../models/books.js';
-import RedisClient from '../server.js';
+import RedisClient from '../../mean-bookstore-ecommerce/server.js';
 
 const countRecords = async () => {
   const num = await Books.countDocuments({});

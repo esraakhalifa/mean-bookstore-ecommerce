@@ -24,7 +24,7 @@ const bookSchemaFromCache = (book) => ({
 const getCachedBook = async (id) => {
   try {
     const bookKey = `book:${id.toString()}`;
-    const cachedBook = RedisClient.hGetAll(bookKey);
+    const cachedBook = RedisClient.hGet(bookKey);
     if (!cachedBook || Object.keys(cachedBook).length === 0) {
       console.log(`No cached book data found for page ${bookKey}`);
       return null;
@@ -114,7 +114,7 @@ const getPageCache = async (page) => {
 
     const cachedBooks = [];
     for (const ref of cachedReferences) {
-      const bookData = await RedisClient.hGetAll(ref);
+      const bookData = await RedisClient.hGet(ref);
 
       if (Object.keys(bookData).length > 0) {
         cachedBooks.push(bookSchemaFromCache(bookData));
@@ -137,7 +137,7 @@ const getAllCachedBooks = async () => {
     const allBooks = [];
 
     for (const key of keys) {
-      const cachedBook = await RedisClient.hGetAll(key);
+      const cachedBook = await RedisClient.hGet(key);
       if (cachedBook && Object.keys(cachedBook).length > 0) {
         allBooks.push(bookSchemaFromCache(cachedBook));
       }

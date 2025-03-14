@@ -499,7 +499,7 @@ export const deleteBook = async (req, res) => {
     if (!deletedBook) {
       return res.status(404).json({message: 'Book not found'});
     }
-    await cache.deleteFromCache(deletedBook);
+    cache.deleteFromCache(deletedBook);
     res.json({message: 'Book deleted successfully'});
   } catch (err) {
     res.status(500).json({message: 'Failed to delete book', error: err.message});
@@ -523,8 +523,8 @@ export const uploadBook = async (req, res) => {
 
     const savedBook = await newBook.save();
     console.log('Book saved successfully:', savedBook);
-    await cache.cacheBook(savedBook);
-    await cache.indexBook(savedBook);
+    cache.cacheBook(savedBook);
+    cache.indexBook(savedBook);
     res.status(201).json(savedBook);
   } catch (err) {
     console.error('Error uploading book:', err);
@@ -558,7 +558,7 @@ export const updateBook = async (req, res) => {
     if (!updatedBook) {
       return res.status(404).json({message: 'Book not found'});
     }
-    await cache.updateCache(updatedBook);
+    cache.updateCache(updatedBook);
     res.json(updatedBook);
   } catch (err) {
     console.error('Error updating book:', err);

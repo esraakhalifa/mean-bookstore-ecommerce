@@ -37,12 +37,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.4.0",
-<<<<<<< Updated upstream
     "@eslint/js": "^9.21.0",
-=======
-    "@eslint/js": "^9.22.0",
-    "@types/node": "^22.13.10",
->>>>>>> Stashed changes
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
@@ -51,12 +46,6 @@
     "globals": "^16.0.0",
     "husky": "^9.1.7",
     "mongoose": "^8.11.0",
-<<<<<<< Updated upstream
     "typescript-eslint": "^8.25.0"
-=======
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.3",
-    "typescript-eslint": "^8.26.1"
->>>>>>> Stashed changes
   }
 }

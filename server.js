@@ -27,7 +27,7 @@ app.use(
   })
 );
 
-export const RedisClient = createClient({
+const RedisClient = createClient({
   url: 'redis://localhost:6379'
 });
 RedisClient.on('error', (err) => console.log('Redis Client Error', err));
@@ -47,15 +47,9 @@ app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
-const RedisClient = createClient({
-  url: 'redis://localhost:6379'
-});
-RedisClient.on('error', (err) => console.log('Redis Client Error', err));
 
-async function connectRedis() {
-  await RedisClient.connect();
-  console.log('Redis Connected');
-}
-export default {RedisClient};
-connectRedis();
+
+
+export  default {RedisClient};
+
 
