@@ -1,9 +1,19 @@
 import os from 'node:os';
 import process from 'node:process';
+import {v2 as cloudinary} from 'cloudinary';
+import dotenv from 'dotenv';
 import Books from '../models/books.js';
 import Notification from '../models/Notification.js';
 import Users from '../models/users.js';
 import {getIO, userActivity, users} from '../utils/socketHelper.js';
+
+dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET
+});
 
 export const getOnlineUsers = async (req, res) => {
   try {
@@ -493,6 +503,11 @@ export const deleteBook = async (req, res) => {
     if (!deletedBook) {
       return res.status(404).json({message: 'Book not found'});
     }
+    const img = deletedBook.img || deletedBook.image || deletedBook.imageUrl;
+    if (img) {
+      const publicId = img.split('/').slice(-2).join('/').split('.')[0];
+      await cloudinary.uploader.destroy(publicId);
+    }
     res.json({message: 'Book deleted successfully'});
   } catch (err) {
     res.status(500).json({message: 'Failed to delete book', error: err.message});
@@ -539,7 +554,15 @@ export const updateBook = async (req, res) => {
     };
 
     if (authors) updateData.authors = JSON.parse(authors);
-    if (imageUrl) updateData.img = imageUrl;
+    if (imageUrl) {
+      const oldBook = Books.findById(id);
+      const oldimage = oldBook.img || oldBook.image || oldBook.imageUrl;
+      if (oldimage) {
+        const publicId = oldimage.split('/').slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      }
+      updateData.img = imageUrl;
+    }
 
     const updatedBook = await Books.findByIdAndUpdate(
       id,

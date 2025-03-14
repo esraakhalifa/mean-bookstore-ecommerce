@@ -43,7 +43,9 @@ const BookSchema = new mongoose.Schema(
     img: {
       type: String,
       required: true
-
+    },
+    rate: {
+      type: Number
     }
   }
 );
