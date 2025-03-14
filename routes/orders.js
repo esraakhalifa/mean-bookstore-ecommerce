@@ -5,7 +5,7 @@ import authorize from '../middlewares/authorize.js';
 
 const router = express.Router();
 
-router.get('/:id', OrderController.getOrderById);
+router.get('/:id', authenticate, OrderController.getOrderById);
 router.post('/', authenticate, OrderController.createOrder);
 router.get('/user/:userId', authenticate, OrderController.getUserOrders);
 

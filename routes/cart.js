@@ -6,11 +6,11 @@ import {validateAddToCart, validateUpdateCartItem} from '../middlewares/validate
 const router = express.Router();
 
 router.use(authenticate);
-router.get('/', CartController.getCart);
-router.get('/count', CartController.getCartCount);
-router.post('/add', validateAddToCart, CartController.addToCart);
-router.put('/update', validateUpdateCartItem, CartController.updateCartItem);
-router.delete('/remove/:bookId', CartController.removeFromCart);
-router.delete('/clear', CartController.clearCart);
+router.get('/', authenticate, CartController.getCart);
+router.get('/count', authenticate, CartController.getCartCount);
+router.post('/add', authenticate, validateAddToCart, CartController.addToCart);
+router.put('/update', authenticate, validateUpdateCartItem, CartController.updateCartItem);
+router.delete('/remove/:bookId', authenticate, CartController.removeFromCart);
+router.delete('/clear', authenticate, CartController.clearCart);
 
 export default router;
