@@ -2,8 +2,9 @@ import os from 'node:os';
 import process from 'node:process';
 import Books from '../models/books.js';
 import Notification from '../models/Notification.js';
+import Orders from '../models/orders.js';
 import Users from '../models/users.js';
-import {getIO, userActivity, users} from '../utils/socketHelper.js';
+import {getIO, userActivity, usersData} from '../utils/socketHelper.js';
 
 export const getOnlineUsers = async (req, res) => {
   try {
@@ -11,10 +12,10 @@ export const getOnlineUsers = async (req, res) => {
     const limit = Number.parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const userIds = [...users.keys()];
+    const userIds = [...usersData.keys()];
 
     const onlineUserIds = userIds.filter((userId) =>
-      users.get(userId).sockets.size > 0
+      usersData.get(userId).sockets.size > 0
     );
 
     if (onlineUserIds.length === 0) {
@@ -48,7 +49,7 @@ export const getOnlineUsers = async (req, res) => {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
-        connections: users.get(userId).sockets.size,
+        connections: usersData.get(userId).sockets.size,
         status,
 
         ...(req.query.detailed === 'true' && {
@@ -74,7 +75,7 @@ export const getOnlineUsers = async (req, res) => {
 
 export const getUserActivityStats = async (req, res) => {
   try {
-    const onlineUsersCount = [...users.entries()].filter(
+    const onlineUsersCount = [...usersData.entries()].filter(
       ([_, userData]) => userData.sockets.size > 0
     ).length;
 
@@ -122,11 +123,11 @@ export const getUserConnections = async (req, res) => {
     const userId = req.params.userId;
     const detailed = req.query.detailed === 'true';
 
-    if (!users.has(userId)) {
+    if (!usersData.has(userId)) {
       return res.status(404).json({message: 'User not found'});
     }
 
-    const userData = users.get(userId);
+    const userData = usersData.get(userId);
 
     if (userData.sockets.size === 0) {
       return res.status(404).json({message: 'User is not online'});
@@ -158,11 +159,11 @@ export const getUserActivityHistory = async (req, res) => {
   try {
     const userId = req.params.userId;
 
-    if (!users.has(userId)) {
+    if (!usersData.has(userId)) {
       return res.status(404).json({message: 'User not found'});
     }
 
-    const userData = users.get(userId);
+    const userData = usersData.get(userId);
     const status = userActivity.has(userId) ? userActivity.get(userId).status : 'unknown';
     const lastActive = userActivity.has(userId) ? userActivity.get(userId).lastActive : null;
 
@@ -211,8 +212,8 @@ export const getAllConnectionsSummary = async (req, res) => {
       connectionsByRole: {}
     };
 
-    const onlineUserIds = [...users.keys()].filter((userId) =>
-      users.get(userId).sockets.size > 0
+    const onlineUserIds = [...usersData.keys()].filter((userId) =>
+      usersData.get(userId).sockets.size > 0
     );
 
     if (onlineUserIds.length === 0) {
@@ -230,7 +231,7 @@ export const getAllConnectionsSummary = async (req, res) => {
     });
 
     for (const userId of onlineUserIds) {
-      const userData = users.get(userId);
+      const userData = usersData.get(userId);
       const role = userRoles[userId] || 'unknown';
 
       if (!summary.connectionsByRole[role]) {
@@ -289,18 +290,19 @@ export const broadcastSystemMessage = async (req, res) => {
 
 export const disconnectAllUserInstances = async (req, res) => {
   try {
-    const {userId} = req.body;
+    const userId = req.params.id;
+
     const io = getIO();
 
     if (!userId) {
       return res.status(400).json({message: 'User ID is required'});
     }
 
-    if (!users.has(userId)) {
+    if (!usersData.has(userId)) {
       return res.status(404).json({message: 'User not found or not connected'});
     }
 
-    const userData = users.get(userId);
+    const userData = usersData.get(userId);
     const socketIds = [...userData.sockets.keys()];
 
     if (socketIds.length === 0) {
@@ -326,21 +328,25 @@ export const disconnectAllUserInstances = async (req, res) => {
 
 export const sendAdminNotification = async (req, res) => {
   try {
-    const {userIds, message, type} = req.body;
-
-    if (!Array.isArray(userIds) || userIds.length === 0 || !message || !type) {
+    const {userId, message, type} = req.body;
+    // console.log(req.body);
+    if (!userId || !message || !type) {
       return res.status(400).json({message: 'User IDs array, message and type are required'});
     }
+    const notificationTypes = ['order', 'stock', 'system', 'inventory'];
+    if (!notificationTypes.includes(type)) {
+      return res.status(400).json({message: 'Invalid notification type'});
+    }
 
-    const notifications = userIds.map((userId) => ({
+    const notification = {
       user: userId,
       message,
       type,
       metadata: {source: 'admin'},
       read: false
-    }));
+    };
 
-    const createdNotifications = await Notification.insertMany(notifications);
+    const createdNotifications = await Notification.insertMany(notification);
 
     const io = getIO();
     createdNotifications.forEach((notification) => {
@@ -396,7 +402,7 @@ export const getSystemHealth = async (req, res) => {
     const processUptime = process.uptime();
 
     // Example: Active connections (assuming a Map of users and their sockets)
-    const activeConnections = [...users.entries()].reduce((total, [_, userData]) => {
+    const activeConnections = [...usersData.entries()].reduce((total, [_, userData]) => {
       return total + userData.sockets.size;
     }, 0);
 
@@ -449,10 +455,92 @@ export const getSystemHealth = async (req, res) => {
   }
 };
 
+const getSystemHealthMetrics = async () => {
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const usedMemory = totalMemory - freeMemory;
+
+  // CPU calculation (same as before)
+  const startUsage = getCpuUsage();
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  const endUsage = getCpuUsage();
+
+  const idleDiff = endUsage.idle - startUsage.idle;
+  const totalDiff = endUsage.total - startUsage.total;
+  const cpuUsage = totalDiff > 0
+    ? ((totalDiff - idleDiff) / totalDiff) * 100
+    : 0;
+
+  return {
+    cpuUsage: Number(cpuUsage.toFixed(2)),
+    memoryUsage: Number((usedMemory / totalMemory * 100).toFixed(2)),
+    systemUptime: os.uptime(),
+    processUptime: process.uptime()
+  };
+};
+
+export const getDashboardStats = async (req, res) => {
+  try {
+    // Get business statistics
+    const totalUsers = await Users.countDocuments();
+    const totalBooks = await Books.countDocuments();
+    const totalOrders = await Orders.countDocuments();
+    const revenueResult = await Orders.aggregate([
+      {$group: {_id: null, total: {$sum: '$amount'}}}
+    ]);
+    const totalRevenue = revenueResult[0]?.total || 0;
+
+    // Get recent orders (last 5)
+    const recentOrders = await Orders.find()
+      .sort({createdAt: -1})
+      .limit(5)
+      .populate('user', 'name email');
+
+    // Get system health metrics (from your existing getSystemHealth function)
+    const systemMetrics = await getSystemHealthMetrics();
+
+    res.json({
+      totalUsers,
+      totalBooks,
+      totalOrders,
+      totalRevenue,
+      recentOrders,
+      systemMetrics
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({message: 'Failed to fetch dashboard stats'});
+  }
+};
+
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await Users.find();
-    res.json(users);
+    const page = Number.parseInt(req.query.page) || 1;
+    const limit = Number.parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        {name: {$regex: search, $options: 'i'}},
+        {email: {$regex: search, $options: 'i'}}
+      ];
+    }
+
+    const total = await Users.countDocuments(query);
+    const users = await Users.find(query)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({
+      users,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (err) {
     res.status(500).json({message: 'Failed to fetch users', error: err.message});
   }
