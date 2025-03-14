@@ -82,7 +82,7 @@ export const createOrder = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Error creating order:', error);
+ //   console.error('Error creating order:', error);
     if (error.message.includes('Insufficient stock')) {
       return res.status(400).json({message: error.message});
     }
@@ -122,7 +122,7 @@ export const getOrders = async (req, res) => {
       pagination: {total, page, limit, pages}
     });
   } catch (error) {
-    console.error('Error fetching orders:', error);
+ //   console.error('Error fetching orders:', error);
     return res.status(500).json({message: 'Internal server error'});
   }
 };
@@ -141,7 +141,7 @@ export const getOrderById = async (req, res) => {
 
     return res.status(200).json(order);
   } catch (error) {
-    console.error('Error fetching order:', error);
+    //console.error('Error fetching order:', error);
     return res.status(500).json({message: 'Internal server error'});
   }
 };
@@ -149,6 +149,9 @@ export const getOrderById = async (req, res) => {
 export const getUserOrders = async (req, res) => {
   try {
     const userId = req.params.userId;
+    if (!userId) {
+      return res.status(404).json({message: 'User not found'});
+    }
     const page = Number.parseInt(req.query.page) || 1;
     const limit = Number.parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -172,7 +175,7 @@ export const getUserOrders = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching user orders:', error);
+//    console.error('Error fetching user orders:', error);
     return res.status(500).json({message: 'Internal server error'});
   }
 };
@@ -232,7 +235,7 @@ export const updateOrder = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Error updating order:', error);
+ //   console.error('Error updating order:', error);
     return res.status(500).json({message: 'Internal server error'});
   }
 };
@@ -288,7 +291,7 @@ export const deleteOrder = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error('Error deleting order:', error);
+//    console.error('Error deleting order:', error);
     return res.status(500).json({message: 'Internal server error'});
   }
 };
@@ -336,7 +339,7 @@ export const getPopularBooks = async (req, res) => {
 
     return res.status(200).json(popularBooks);
   } catch (error) {
-    console.error('Error fetching popular books:', error);
+ //   console.error('Error fetching popular books:', error);
     return res.status(500).json({message: 'Internal server error'});
   }
 };
