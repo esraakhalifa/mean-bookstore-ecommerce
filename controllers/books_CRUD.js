@@ -1,13 +1,11 @@
 import Books from '../models/books.js';
 import Reviews from '../models/reviews.js';
 
-// Helper to match reviews by IDs
 const arrayMatch = async (reviewsIDs) => {
   const reviewsArray = await Reviews.find({_id: {$in: reviewsIDs}});
   return reviewsArray;
 };
 
-// Count total number of books
 const countRecords = async (req, res) => {
   try {
     const num = await Books.countDocuments({});
@@ -18,7 +16,6 @@ const countRecords = async (req, res) => {
   }
 };
 
-// Recalculate rating based on reviews
 const recalculateRating = async (id) => {
   const book = await Books.findById(id);
   if (!book) return;
@@ -89,7 +86,6 @@ const detailsPage = async (req, res, id) => {
 // Add a review to a book
 const addReview = async (req, res, id, review, user) => {
   try {
-    // Check if user is logged in
     if (!user) {
       return res.json({status: 401, message: 'Unauthorized: User not logged in'});
     }
@@ -115,7 +111,6 @@ const addReview = async (req, res, id, review, user) => {
 // Update a review
 const updateReview = async (req, res, rid, review, user) => {
   try {
-    // Check if user is logged in
     if (!user) {
       return res.json({status: 401, message: 'Unauthorized: User not logged in'});
     }
@@ -151,7 +146,6 @@ const updateReview = async (req, res, rid, review, user) => {
 // Delete a review from a book
 const deleteReview = async (req, res, id, rid, user) => {
   try {
-    // Check if user is logged in
     if (!user) {
       return res.json({status: 401, message: 'Unauthorized: User not logged in'});
     }
@@ -182,7 +176,6 @@ const deleteReview = async (req, res, id, rid, user) => {
     return res.json({status: 500, message: 'Failed to delete review'});
   }
 };
-// Export all handlers
 export {
   addReview,
   bookDetails,
