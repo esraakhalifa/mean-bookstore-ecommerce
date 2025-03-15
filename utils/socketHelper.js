@@ -1,18 +1,17 @@
-import process from 'node:process';
 import {RateLimiterMemory} from 'rate-limiter-flexible';
 import {Server} from 'socket.io';
 import {authenticate, checkMaximumInstances} from '../middlewares/sockets.js';
 import CustomError from '../utils/CustomError.js';
 
 let io;
-const users = new Map(); // userId -> { sockets: Map<socketId, metadata>, history: Array }
+const usersData = new Map(); // userId -> { sockets: Map<socketId, metadata>, history: Array }
 const trackedBooks = new Map(); // bookId -> Set<userId>
 const userActivity = new Map(); // userId -> { lastActive: Date, status: string }
 
 export const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: '*',
       methods: ['GET', 'POST']
     }
   });
@@ -25,25 +24,25 @@ export const initSocket = (server) => {
     try {
       await rateLimiter.consume(socket.handshake.address);
       next();
-    } catch (error) {
+    } catch {
       next(new CustomError('Rate limit exceeded', 429));
     }
   });
 
   io.use(authenticate);
-  io.use(checkMaximumInstances(io, users));
+  io.use(checkMaximumInstances(usersData));
 
   io.on('connection', async (socket) => {
-    const userId = socket.user.id;
+    const userId = socket.user.userId;
 
-    if (!users.has(userId)) {
-      users.set(userId, {
+    if (!usersData.has(userId)) {
+      usersData.set(userId, {
         sockets: new Map(),
         history: []
       });
     }
 
-    const userData = users.get(userId);
+    const userData = usersData.get(userId);
 
     userData.sockets.set(socket.id, {
       device: socket.user.userAgent.device.type || 'desktop',
@@ -69,20 +68,6 @@ export const initSocket = (server) => {
       socket.join('admin-channel');
     }
 
-    socket.on('track-book', (bookId) => {
-      if (!trackedBooks.has(bookId)) {
-        trackedBooks.set(bookId, new Set());
-      }
-      trackedBooks.get(bookId).add(userId);
-    });
-
-    socket.on('user-status', (status) => {
-      if (userActivity.has(userId)) {
-        userActivity.get(userId).status = status;
-        userActivity.get(userId).lastActive = new Date();
-      }
-    });
-
     socket.on('ping', () => {
       if (userActivity.has(userId)) {
         userActivity.get(userId).lastActive = new Date();
@@ -100,20 +85,6 @@ export const initSocket = (server) => {
         mac: socket.handshake.query.mac,
         disconnectedAt: new Date()
       });
-
-      if (userActivity.has(userId) && userData.sockets.size === 0) {
-        userActivity.get(userId).status = 'offline';
-        userActivity.get(userId).lastActive = new Date();
-
-        io.to('admin-channel').emit('user-offline', {
-          userId,
-          lastActive: userActivity.get(userId).lastActive
-        });
-
-        if (userData.history.length > 50) {
-          userData.history = userData.history.slice(-50);
-        }
-      }
     });
   });
 
@@ -139,4 +110,4 @@ export const getIO = () => {
   return io;
 };
 
-export {trackedBooks, userActivity, users};
+export {trackedBooks, userActivity, usersData};

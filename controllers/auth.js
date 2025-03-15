@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import User from '../models/users.js';
 import * as authUtils from '../utils/authHelper.js';
-import CustomError from '../utils/CustomError.js';
+import CustomError from '../utils/CustomError.js'; // Import CustomError
 
 export const getLogin = (req, res, next) => {
   if (req.isAuthenticated()) {
@@ -20,15 +20,13 @@ export const getSignup = (req, res, next) => {
 
 export const googleAuth = passport.authenticate('google', {scope: ['profile', 'email']});
 
-export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});/* , (req, res) => {
-  res.redirect(`http://localhost:4200/login?token=${req.user.token}`);
-}); */
+export const googleAuthCallback = passport.authenticate('google', {failureRedirect: '/login'});
 
 export const googleAuthSuccess = (req, res) => {
   res.redirect('/home');
 };
 
-export const getProfile = (req, res, next) => {
+export const getProfile = (req, res) => {
   if (!req.isAuthenticated()) {
     throw new CustomError('Unauthorized: Please log in', 401);
   }
@@ -48,8 +46,8 @@ export const postLogin = async (req, res, next) => {
       throw new CustomError('User not found', 404);
     }
 
-    const doMatch = await bcrypt.compare(password, user.password);
-    if (!doMatch) {
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
       throw new CustomError('Invalid credentials', 401);
     }
 
@@ -84,8 +82,8 @@ export const postSignup = async (req, res, next) => {
       throw new CustomError('Passwords do not match', 400);
     }
 
-    const userDoc = await User.findOne({email});
-    if (userDoc) {
+    const existingUser = await User.findOne({email});
+    if (existingUser) {
       throw new CustomError('User already exists', 409);
     }
 
@@ -136,10 +134,7 @@ export const postRefresh = async (req, res, next) => {
     const tokens = await authUtils.refreshToken(refreshToken);
     res.json(tokens);
   } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      throw new CustomError('Invalid or expired refresh token', 403);
-    }
-    next(error);
+    next(new CustomError('Invalid Refresh Token', 403));
   }
 };
 
@@ -151,9 +146,6 @@ export const emailVerify = async (req, res, next) => {
 
     res.status(200).json({message: 'Email verified, you can log in'});
   } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      throw new CustomError('Invalid or expired token', 400);
-    }
-    next(error);
+    next(new CustomError('Invalid or expired token', 400));
   }
 };

@@ -1,20 +1,11 @@
 import os from 'node:os';
 import process from 'node:process';
-import {v2 as cloudinary} from 'cloudinary';
-import dotenv from 'dotenv';
 import Books from '../models/books.js';
 import Notification from '../models/Notification.js';
+import Orders from '../models/orders.js';
 import Users from '../models/users.js';
 import CustomError from '../utils/CustomError.js';
-import {getIO, userActivity, users} from '../utils/socketHelper.js';
-
-dotenv.config();
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_NAME,
-  api_key: process.env.CLOUDINARY_KEY,
-  api_secret: process.env.CLOUDINARY_SECRET
-});
+import {getIO, userActivity, usersData} from '../utils/socketHelper.js';
 
 export const getOnlineUsers = async (req, res, next) => {
   try {
@@ -22,10 +13,10 @@ export const getOnlineUsers = async (req, res, next) => {
     const limit = Number.parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const userIds = [...users.keys()];
+    const userIds = [...usersData.keys()];
 
     const onlineUserIds = userIds.filter((userId) =>
-      users.get(userId).sockets.size > 0
+      usersData.get(userId).sockets.size > 0
     );
 
     if (onlineUserIds.length === 0) {
@@ -59,7 +50,7 @@ export const getOnlineUsers = async (req, res, next) => {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         role: user.role,
-        connections: users.get(userId).sockets.size,
+        connections: usersData.get(userId).sockets.size,
         status,
 
         ...(req.query.detailed === 'true' && {
@@ -78,13 +69,13 @@ export const getOnlineUsers = async (req, res, next) => {
       }
     });
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to fetch online users', 500));
   }
 };
 
 export const getUserActivityStats = async (req, res, next) => {
   try {
-    const onlineUsersCount = [...users.entries()].filter(
+    const onlineUsersCount = [...usersData.entries()].filter(
       ([_, userData]) => userData.sockets.size > 0
     ).length;
 
@@ -122,7 +113,7 @@ export const getUserActivityStats = async (req, res, next) => {
       statusCounts
     });
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to fetch user activity stats', 500));
   }
 };
 
@@ -131,11 +122,11 @@ export const getUserConnections = async (req, res, next) => {
     const userId = req.params.userId;
     const detailed = req.query.detailed === 'true';
 
-    if (!users.has(userId)) {
+    if (!usersData.has(userId)) {
       throw new CustomError('User not found', 404);
     }
 
-    const userData = users.get(userId);
+    const userData = usersData.get(userId);
 
     if (userData.sockets.size === 0) {
       throw new CustomError('User is not online', 404);
@@ -166,11 +157,11 @@ export const getUserActivityHistory = async (req, res, next) => {
   try {
     const userId = req.params.userId;
 
-    if (!users.has(userId)) {
+    if (!usersData.has(userId)) {
       throw new CustomError('User not found', 404);
     }
 
-    const userData = users.get(userId);
+    const userData = usersData.get(userId);
     const status = userActivity.has(userId) ? userActivity.get(userId).status : 'unknown';
     const lastActive = userActivity.has(userId) ? userActivity.get(userId).lastActive : null;
 
@@ -217,8 +208,8 @@ export const getAllConnectionsSummary = async (req, res, next) => {
       connectionsByRole: {}
     };
 
-    const onlineUserIds = [...users.keys()].filter((userId) =>
-      users.get(userId).sockets.size > 0
+    const onlineUserIds = [...usersData.keys()].filter((userId) =>
+      usersData.get(userId).sockets.size > 0
     );
 
     if (onlineUserIds.length === 0) {
@@ -236,7 +227,7 @@ export const getAllConnectionsSummary = async (req, res, next) => {
     });
 
     for (const userId of onlineUserIds) {
-      const userData = users.get(userId);
+      const userData = usersData.get(userId);
       const role = userRoles[userId] || 'unknown';
 
       if (!summary.connectionsByRole[role]) {
@@ -264,7 +255,7 @@ export const getAllConnectionsSummary = async (req, res, next) => {
 
     return res.status(200).json(summary);
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to fetch connections summary', 500));
   }
 };
 
@@ -293,18 +284,19 @@ export const broadcastSystemMessage = async (req, res, next) => {
 
 export const disconnectAllUserInstances = async (req, res, next) => {
   try {
-    const {userId} = req.body;
+    const userId = req.params.id;
+
     const io = getIO();
 
     if (!userId) {
       throw new CustomError('User ID is required', 400);
     }
 
-    if (!users.has(userId)) {
+    if (!usersData.has(userId)) {
       throw new CustomError('User not found or not connected', 404);
     }
 
-    const userData = users.get(userId);
+    const userData = usersData.get(userId);
     const socketIds = [...userData.sockets.keys()];
 
     if (socketIds.length === 0) {
@@ -329,21 +321,26 @@ export const disconnectAllUserInstances = async (req, res, next) => {
 
 export const sendAdminNotification = async (req, res, next) => {
   try {
-    const {userIds, message, type} = req.body;
+    const {userId, message, type} = req.body;
 
-    if (!Array.isArray(userIds) || userIds.length === 0 || !message || !type) {
+    if (!userId || !message || !type) {
       throw new CustomError('User IDs array, message and type are required', 400);
     }
 
-    const notifications = userIds.map((userId) => ({
+    const notificationTypes = ['order', 'stock', 'system', 'inventory'];
+    if (!notificationTypes.includes(type)) {
+      throw new CustomError('Invalid notification type', 400);
+    }
+
+    const notification = {
       user: userId,
       message,
       type,
       metadata: {source: 'admin'},
       read: false
-    }));
+    };
 
-    const createdNotifications = await Notification.insertMany(notifications);
+    const createdNotifications = await Notification.insertMany(notification);
 
     const io = getIO();
     createdNotifications.forEach((notification) => {
@@ -365,24 +362,6 @@ export const sendAdminNotification = async (req, res, next) => {
   }
 };
 
-function getCpuUsage() {
-  const cpus = os.cpus();
-  let totalIdle = 0;
-  let totalTick = 0;
-
-  cpus.forEach((cpu) => {
-    for (const type in cpu.times) {
-      totalTick += cpu.times[type];
-    }
-    totalIdle += cpu.times.idle;
-  });
-
-  return {
-    idle: totalIdle,
-    total: totalTick
-  };
-}
-
 export const getSystemHealth = async (req, res, next) => {
   try {
     // System memory details
@@ -398,7 +377,7 @@ export const getSystemHealth = async (req, res, next) => {
     const processUptime = process.uptime();
 
     // Example: Active connections (assuming a Map of users and their sockets)
-    const activeConnections = [...users.entries()].reduce((total, [_, userData]) => {
+    const activeConnections = [...usersData.entries()].reduce((total, [_, userData]) => {
       return total + userData.sockets.size;
     }, 0);
 
@@ -446,16 +425,73 @@ export const getSystemHealth = async (req, res, next) => {
       activeUsers
     });
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to fetch system health', 500));
+  }
+};
+
+export const getDashboardStats = async (req, res, next) => {
+  try {
+    // Get business statistics
+    const totalUsers = await Users.countDocuments();
+    const totalBooks = await Books.countDocuments();
+    const totalOrders = await Orders.countDocuments();
+    const revenueResult = await Orders.aggregate([
+      {$group: {_id: null, total: {$sum: '$amount'}}}
+    ]);
+    const totalRevenue = revenueResult[0]?.total || 0;
+
+    // Get recent orders (last 5)
+    const recentOrders = await Orders.find()
+      .sort({createdAt: -1})
+      .limit(5)
+      .populate('user', 'name email');
+
+    // Get system health metrics (from your existing getSystemHealth function)
+    const systemMetrics = await getSystemHealthMetrics();
+
+    res.json({
+      totalUsers,
+      totalBooks,
+      totalOrders,
+      totalRevenue,
+      recentOrders,
+      systemMetrics
+    });
+  } catch (error) {
+    next(new CustomError('Failed to fetch dashboard stats', 500));
   }
 };
 
 export const getAllUsers = async (req, res, next) => {
   try {
-    const users = await Users.find();
-    res.json(users);
+    const page = Number.parseInt(req.query.page) || 1;
+    const limit = Number.parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        {name: {$regex: search, $options: 'i'}},
+        {email: {$regex: search, $options: 'i'}}
+      ];
+    }
+
+    const total = await Users.countDocuments(query);
+    const users = await Users.find(query)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({
+      users,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to fetch users', 500));
   }
 };
 
@@ -465,7 +501,7 @@ export const getAllBooks = async (req, res, next) => {
     const totalBooks = await Books.countDocuments();
     res.json({books, totalBooks});
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to fetch books', 500));
   }
 };
 
@@ -494,13 +530,6 @@ export const deleteBook = async (req, res, next) => {
     if (!deletedBook) {
       throw new CustomError('Book not found', 404);
     }
-
-    const img = deletedBook.img || deletedBook.image || deletedBook.imageUrl;
-    if (img) {
-      const publicId = img.split('/').slice(-2).join('/').split('.')[0];
-      await cloudinary.uploader.destroy(publicId);
-    }
-
     res.json({message: 'Book deleted successfully'});
   } catch (error) {
     next(error);
@@ -523,9 +552,11 @@ export const uploadBook = async (req, res, next) => {
     });
 
     const savedBook = await newBook.save();
+    console.log('Book saved successfully:', savedBook);
+
     res.status(201).json(savedBook);
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to upload book', 500));
   }
 };
 
@@ -544,15 +575,7 @@ export const updateBook = async (req, res, next) => {
     };
 
     if (authors) updateData.authors = JSON.parse(authors);
-    if (imageUrl) {
-      const oldBook = await Books.findById(id);
-      const oldImage = oldBook.img || oldBook.image || oldBook.imageUrl;
-      if (oldImage) {
-        const publicId = oldImage.split('/').slice(-2).join('/').split('.')[0];
-        await cloudinary.uploader.destroy(publicId);
-      }
-      updateData.img = imageUrl;
-    }
+    if (imageUrl) updateData.img = imageUrl;
 
     const updatedBook = await Books.findByIdAndUpdate(
       id,
@@ -566,7 +589,7 @@ export const updateBook = async (req, res, next) => {
 
     res.json(updatedBook);
   } catch (error) {
-    next(error);
+    next(new CustomError('Failed to update book', 500));
   }
 };
 
