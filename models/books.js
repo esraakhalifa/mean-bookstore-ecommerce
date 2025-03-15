@@ -41,8 +41,7 @@ const BookSchema = new mongoose.Schema(
       ref: 'Review'
     }],
     img: {
-      type: String,
-      required: true
+      type: String
 
     }
   }

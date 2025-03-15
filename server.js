@@ -6,6 +6,9 @@ import session from 'express-session';
 import {createClient} from 'redis';
 import connectDB from './config/db.js';
 import passport from './config/passport.js';
+// import errorHandler from './middlewares/errorHandler.js';
+// import requestLogger from './middlewares/requestLogger.js';
+import Books from './models/books.js';
 import router from './routes/index.js';
 
 dotenv.config();
@@ -18,15 +21,6 @@ app.use(router);
 
 connectDB();
 
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || 'your-secret-key',
-    resave: false,
-    saveUninitialized: true,
-    cookie: {secure: false} // Set to true if using HTTPS
-  })
-);
-
 const RedisClient = createClient({
   url: 'redis://localhost:6379'
 });
@@ -37,6 +31,26 @@ async function connectRedis() {
   console.log('Redis Connected');
 }
 connectRedis();
+async function cacheOnInit() {
+  const books = await Books.find();
+
+  const totalBooks = await Books.countDocuments();
+  const allbooks = {books, totalBooks};
+
+  await RedisClient.set('allbooks', JSON.stringify(allbooks), 'EX', 3600);
+  console.log('populated the cache with all the books');
+}
+cacheOnInit();
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: {secure: false} // Set to true if using HTTPS
+  })
+);
+
+  
 
 app.use(passport.initialize());
 app.use(passport.session());
@@ -47,9 +61,4 @@ app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
-
-
-
-export  default {RedisClient};
-
-
+export {RedisClient};

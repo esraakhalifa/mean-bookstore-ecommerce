@@ -5,6 +5,7 @@ import Books from '../models/books.js';
 import Notification from '../models/Notification.js';
 import Users from '../models/users.js';
 import {getIO, userActivity, users} from '../utils/socketHelper.js';
+import { RedisClient } from '../server.js';
 
 export const getOnlineUsers = async (req, res) => {
   try {
@@ -452,8 +453,31 @@ export const getSystemHealth = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await Users.find();
-    res.json(users);
+    const page = Number.parseInt(req.query.page) || 1;
+    const limit = Number.parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+
+    const query = {};
+    if (search) {
+      query.$or = [
+        {name: {$regex: search, $options: 'i'}},
+        {email: {$regex: search, $options: 'i'}}
+      ];
+    }
+    const total = await Users.countDocuments(query);
+    const users = await Users.find(query)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({
+      users,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (err) {
     res.status(500).json({message: 'Failed to fetch users', error: err.message});
   }
@@ -461,13 +485,19 @@ export const getAllUsers = async (req, res) => {
 
 export const getAllBooks = async (req, res) => {
   try {
-    const cachedBooks = cache.getAllCachedBooks();
-    if (!cachedBooks || cachedBooks.length !== 0) return cachedBooks;
+    const allCachedBooks = await RedisClient.get('allbooks');
+    console.log('allCachedBooks from redis:', allCachedBooks);
+    if (allCachedBooks) return res.json(JSON.parse(allCachedBooks));
     const books = await Books.find();
+
     const totalBooks = await Books.countDocuments();
-    for(const book of books) cache.cacheBook(book);
-    res.json({books, totalBooks});
+    const allbooks = {books, totalBooks};
+
+    await RedisClient.set('allbooks', JSON.stringify(allbooks), 'EX', 3600);
+
+    return res.json(allbooks);
   } catch (err) {
+    console.log('hello from get all books!!');
     res.status(500).json({message: 'Failed to fetch books', error: err.message});
   }
 };
@@ -475,8 +505,10 @@ export const getAllBooks = async (req, res) => {
 export const getBook = async (req, res) => {
   try {
     const {id} = req.params;
-    const cachedBook =  cache.getCachedBook(id);
-    if (!cachedBook) return cachedBook;
+    const cachedBook = await cache.getCachedBook(id);
+    if (cachedBook) {
+      return res.json(cachedBook);
+    }
     const book = await Books
       .findById(id)
       .populate('reviews')
@@ -485,7 +517,7 @@ export const getBook = async (req, res) => {
     if (!book) {
       return res.status(404).json({message: 'Book not found'});
     }
-    cache.cacheBook(book);
+    await cache.cacheBook(book);
     res.json(book);
   } catch (err) {
     res.status(500).json({message: 'Failed to fetch book', error: err.message});
@@ -499,7 +531,7 @@ export const deleteBook = async (req, res) => {
     if (!deletedBook) {
       return res.status(404).json({message: 'Book not found'});
     }
-    cache.deleteFromCache(deletedBook);
+    cache.deleteFromCache(id);
     res.json({message: 'Book deleted successfully'});
   } catch (err) {
     res.status(500).json({message: 'Failed to delete book', error: err.message});
@@ -508,23 +540,19 @@ export const deleteBook = async (req, res) => {
 
 export const uploadBook = async (req, res) => {
   try {
-    const {title, price, authors, description, stock, img} = req.body;
-
-    const imageUrl = req.file ? req.file.path : (img || null);
+    const {title, price, authors, description, stock} = req.body;
 
     const newBook = new Books({
       title,
       price: Number(price),
       authors: authors ? JSON.parse(authors) : [],
       description,
-      stock: stock ? Number(stock) : 0,
-      img: imageUrl
+      stock: stock ? Number(stock) : 0
     });
 
     const savedBook = await newBook.save();
-    console.log('Book saved successfully:', savedBook);
-    cache.cacheBook(savedBook);
-    cache.indexBook(savedBook);
+
+    await cache.cacheBook(newBook);
     res.status(201).json(savedBook);
   } catch (err) {
     console.error('Error uploading book:', err);
@@ -558,7 +586,7 @@ export const updateBook = async (req, res) => {
     if (!updatedBook) {
       return res.status(404).json({message: 'Book not found'});
     }
-    cache.updateCache(updatedBook);
+    await cache.updateCache(updatedBook);
     res.json(updatedBook);
   } catch (err) {
     console.error('Error updating book:', err);
