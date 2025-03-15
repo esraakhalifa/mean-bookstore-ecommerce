@@ -1,5 +1,5 @@
 import process from 'node:process';
-import bcrypt from 'bcryptjs';
+import bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import User from '../models/users.js';
@@ -25,7 +25,7 @@ export const googleAuthCallback = passport.authenticate('google', {failureRedire
 }); */
 
 export const googleAuthSuccess = (req, res) => {
-  res.redirect('/home');
+  res.redirect('http://localhost:4200/home');
 };
 
 export const getProfile = (req, res) => {
@@ -97,7 +97,7 @@ export const postSignup = (req, res, next) => {
       }
 
       return bcrypt
-        .hash(password, 12)
+        .hash(password, 10)
         .then((hashedPassword) => {
           const user = new User({
             email,

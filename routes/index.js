@@ -15,6 +15,6 @@ router.use('/order', ordersRouter);
 router.use('/cart', cartRouter);
 router.use('/notifications', notificationsRouter);
 router.use(authRouter);
-router.use(homePage);
+router.use('/book', homePage);
 
 export default router;
