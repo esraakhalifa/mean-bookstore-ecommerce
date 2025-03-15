@@ -1,5 +1,5 @@
 import process from 'node:process';
-import bcrypt from 'bcryptjs';
+import bcrypt from "bcrypt";
 import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import User from '../models/users.js';

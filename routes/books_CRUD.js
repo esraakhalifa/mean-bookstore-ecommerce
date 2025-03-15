@@ -12,12 +12,12 @@ router.get('/', async (req, res) => {
   BooksControllers.homePage(req, res, page, limit); // Pass page and limit to homePage
 });
 
-router.get('/book/:id', async (req, res) => BooksControllers.detailsPage(req, res, req.params.id));
+router.get('/:id', async (req, res) => BooksControllers.detailsPage(req, res, req.params.id));
 
-router.post('/book/:id', authenticate, async (req, res) => BooksControllers.addReview(req, res, req.params.id, {user: req.user, book: req.params.id, comment: req.body.comment, rating: req.body.rating}));
+router.post('/:id', authenticate, async (req, res) => BooksControllers.addReview(req, res, req.params.id, {user: req.user, book: req.params.id, comment: req.body.comment, rating: req.body.rating}));
 
-router.delete('/book/:id/:rid', authenticate, async (req, res) => BooksControllers.deleteReview(req, res, req.params.id, req.params.rid, req.user));
+router.delete('/:id/:rid', authenticate, async (req, res) => BooksControllers.deleteReview(req, res, req.params.id, req.params.rid, req.user));
 
-router.patch('/book/:id/:rid', authenticate, async (req, res) => BooksControllers.updateReview(req, res, req.params.rid, {user: req.user, comment: req.body.comment, rating: req.body.rating}));
+router.patch('/:id/:rid', authenticate, async (req, res) => BooksControllers.updateReview(req, res, req.params.rid, {user: req.user, comment: req.body.comment, rating: req.body.rating}));
 
 export default router;
